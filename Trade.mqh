@@ -19,16 +19,15 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Properties.
-#property strict
-
 // Forward declaration.
 class Trade;
 
 // Includes.
 #include "Account.mqh"
 #include "Chart.mqh"
+#include "Collection.mqh"
 #include "Convert.mqh"
+#include "Math.mqh"
 #include "Object.mqh"
 
 /**
@@ -39,20 +38,23 @@ class Trade;
 
 // Structs.
 struct TradeParams {
+  double            risk_margin; // Maximum account margin to risk (in %).
+  // Classes.
   Account          *account;   // Pointer to Account class.
   Chart            *chart;     // Pointer to Chart class.
   Log              *logger;    // Pointer to Log class.
-  uint             slippage;   // Value of the maximum price slippage in points.
+  unsigned int      slippage;   // Value of the maximum price slippage in points.
   //Market          *market;     // Pointer to Market class.
   //void Init(TradeParams &p) { slippage = p.slippage; account = p.account; chart = p.chart; }
   // Constructor.
-  TradeParams(Account *_account, Chart *_chart, Log *_log, uint _slippage = 50) :
+  TradeParams(Account *_account, Chart *_chart, Log *_log, double _risk_margin = 1.0, unsigned int _slippage = 50) :
     account(_account),
     chart(_chart),
     logger(_log),
+    risk_margin(_risk_margin),
     slippage(_slippage) {}
   // Deconstructor.
-    ~TradeParams() {
+  ~TradeParams() {
   }
   // Struct methods.
   void DeleteObjects() {
@@ -64,17 +66,25 @@ struct TradeParams {
 
 class Trade {
 
-public:
+private:
 
+  Collection *orders;
+  Collection *orders_history;
   TradeParams trade_params;
+  Order *order_last;
+
+public:
 
   /**
    * Class constructor.
    */
-  void Trade() : trade_params(new Account, new Chart, new Log) {};
-  void Trade(ENUM_TIMEFRAMES _tf, string _symbol = NULL)
-    : trade_params(new Account, new Chart(_tf, _symbol), new Log) {};
-  void Trade(TradeParams &_params)
+  Trade() : trade_params(new Account, new Chart, new Log) {};
+  Trade(ENUM_TIMEFRAMES _tf, string _symbol = NULL)
+    : trade_params(new Account, new Chart(_tf, _symbol), new Log),
+      orders(new Collection()),
+      order_last(NULL)
+    {};
+  Trade(TradeParams &_params)
     : trade_params(_params.account, _params.chart, _params.logger, _params.slippage) {};
 
   /**
@@ -82,6 +92,76 @@ public:
    */
   void ~Trade() {
     trade_params.DeleteObjects();
+    Object::Delete(orders);
+  }
+
+  /* Getters */
+
+  /**
+   * Get number of orders opened.
+   *
+   * @return
+   *   Return number of orders opened.
+   */
+  long GetOrdersOpened() {
+    return orders.GetSize();
+  }
+
+  /**
+   * Get number of orders closed.
+   *
+   * @return
+   *   Return number of orders closed.
+   */
+  long GetOrdersClosed() {
+    return orders_history.GetSize();
+  }
+
+  /**
+   * Check if it is possible to trade.
+   */
+  bool TradeAllowed() {
+    bool _result = true;
+    if (trade_params.chart.GetBars() < 100) {
+      Logger().Error("Bars less than 100, not trading yet.");
+      _result = false;
+    }
+    /* Terminal checks */
+    if (Terminal::IsTradeContextBusy()) {
+      Logger().Error("Trade context is temporary busy.");
+      _result = false;
+    }
+    // Check if the EA is allowed to trade and trading context is not busy, otherwise returns false.
+    // OrderSend(), OrderClose(), OrderCloseBy(), OrderModify(), OrderDelete() trading functions
+    //   changing the state of a trading account can be called only if trading by Expert Advisors
+    //   is allowed (the "Allow live trading" checkbox is enabled in the Expert Advisor or script properties).
+    else if (Terminal::IsRealtime() && !Terminal::IsTradeAllowed()) {
+      Logger().Error("Trade is not allowed at the moment, check the settings!");
+      _result = false;
+    }
+    else if (Terminal::IsRealtime() && !Terminal::IsConnected()) {
+      Logger().Error("Terminal is not connected!");
+      _result = false;
+    }
+    else if (IsStopped()) {
+      Logger().Error("Terminal is stopping!");
+      _result = false;
+    }
+    else if (Terminal::IsRealtime() && !Terminal::IsTradeAllowed()) {
+      Logger().Error("Trading is not allowed. Market may be closed or choose the right symbol. Otherwise contact your broker.");
+      _result = false;
+    }
+    else if (Terminal::IsRealtime() && !Terminal::IsExpertEnabled()) {
+      Logger().Error("You need to enable: 'Enable Expert Advisor'/'AutoTrading'.");
+      _result = false;
+    }
+    /* Account checks */
+    // Check the permission to trade for the current account.
+    if (!Account::IsTradeAllowed()) {
+      Logger().Error("Trade is not allowed for this account!");
+      _result = false;
+    }
+    return _result;
   }
 
   /**
@@ -123,7 +203,7 @@ public:
     #endif
   }
   double GetMarginRequired(ENUM_ORDER_TYPE _cmd = ORDER_TYPE_BUY) {
-    return GetMarginRequired(this.Market().GetSymbol(), _cmd);
+    return GetMarginRequired(Market().GetSymbol(), _cmd);
   }
 
   /* Lot size methods */
@@ -133,8 +213,6 @@ public:
    *
    * @param double sl
    *   Stop loss to calculate the lot size for.
-   * @param double risk_margin
-   *   Maximum account margin to risk (in %).
    * @param string symbol
    *   Symbol pair.
    *
@@ -143,38 +221,52 @@ public:
    *
    * @see: https://www.mql5.com/en/code/8568
    */
-  double GetMaxLotSize(double _sl, double risk_margin = 1.0, ENUM_ORDER_TYPE _cmd = NULL) {
+  double GetMaxLotSize(double _sl, ENUM_ORDER_TYPE _cmd = NULL) {
     _cmd = _cmd == NULL ? Order::OrderType() : _cmd;
-    double risk_amount = this.Account().GetRealBalance() / 100 * risk_margin;
-    double _ticks = fabs(_sl - this.Market().GetOpenOffer(_cmd)) / this.Market().GetTickSize();
+    double risk_amount = Account().GetRealBalance() / 100 * trade_params.risk_margin;
+    double _ticks = fabs(_sl - Market().GetOpenOffer(_cmd)) / Market().GetTickSize();
     double lot_size1 = fmin(_sl, _ticks) > 0 ? risk_amount / (_sl * (_ticks / 100.0)) : 1;
-    lot_size1 *= this.Market().GetVolumeMin();
-    // double lot_size2 = 1 / (this.Market().GetTickValue() * sl / risk_margin);
+    lot_size1 *= Market().GetVolumeMin();
+    // double lot_size2 = 1 / (Market().GetTickValue() * sl / risk_margin);
     // PrintFormat("SL=%g: 1 = %g, 2 = %g", sl, lot_size1, lot_size2);
-    return this.Chart().NormalizeLots(lot_size1);
+    return Chart().NormalizeLots(lot_size1);
   }
-  double GetMaxLotSize(uint _pips, double risk_margin = 1.0, ENUM_ORDER_TYPE _cmd = NULL) {
+  double GetMaxLotSize(unsigned int _pips, ENUM_ORDER_TYPE _cmd = NULL) {
     return GetMaxLotSize(CalcOrderSLTP(_pips, _cmd, ORDER_SL));
   }
 
   /**
-   * Validate TP/SL value for the order.
+   * Validate Take Profit value for the order.
    */
-  bool ValidSLTP(double value, ENUM_ORDER_TYPE _cmd, int direction = -1, bool existing = false) {
-    // Calculate minimum market gap.
-    double price = this.Market().GetOpenOffer(_cmd);
-    double distance = this.Market().GetTradeDistanceInPips();
-    bool valid = (
-            (_cmd == OP_BUY  && direction < 0 && Convert::GetValueDiffInPips(price, value) > distance)
-         || (_cmd == OP_BUY  && direction > 0 && Convert::GetValueDiffInPips(value, price) > distance)
-         || (_cmd == OP_SELL && direction < 0 && Convert::GetValueDiffInPips(value, price) > distance)
-         || (_cmd == OP_SELL && direction > 0 && Convert::GetValueDiffInPips(price, value) > distance)
-         );
-    valid &= (value >= 0); // Also must be zero (for unlimited) or above.
-    #ifdef __debug__
-    if (!valid) PrintFormat("%s: Value is not valid: %g (price=%g, distance=%g)!", __FUNCTION__, value, price, distance);
-    #endif
-    return valid;
+  bool ValidTP(double _value, ENUM_ORDER_TYPE _cmd) {
+    bool _valid = _value >= 0;
+    double _price = Market().GetOpenOffer(_cmd);
+    switch (_cmd) {
+      case OP_BUY: {
+        return _value > _price && Convert::GetValueDiffInPips(_value, _price) > Market().GetTradeDistanceInPips();
+      }
+      case OP_SELL: {
+        return _value < _price && Convert::GetValueDiffInPips(_price, _value) > Market().GetTradeDistanceInPips();
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Validate Stop Loss value for the order.
+   */
+  bool ValidSL(double _value, ENUM_ORDER_TYPE _cmd) {
+    bool _valid = _value >= 0;
+    double _price = Market().GetOpenOffer(_cmd);
+    switch (_cmd) {
+      case OP_BUY: {
+        return _value < _price && Convert::GetValueDiffInPips(_price, _value) > Market().GetTradeDistanceInPips();
+      }
+      case OP_SELL: {
+        return _value > _price && Convert::GetValueDiffInPips(_value, _price) > Market().GetTradeDistanceInPips();
+      }
+    }
+    return false;
   }
 
  /**
@@ -207,7 +299,7 @@ public:
     HistorySelect(0, TimeCurrent()); // Select history for access.
     */
     #endif
-    int _orders = Orders::OrdersHistoryTotal();
+    int _orders = Account::OrdersHistoryTotal();
     for (int i = _orders - 1; i >= fmax(0, _orders - ols_orders); i--) {
       #ifdef __MQL5__
       /* @fixme: Rewrite without using CDealInfo.
@@ -216,7 +308,7 @@ public:
         Print(__FUNCTION__, ": Error in history!");
         break;
       }
-      if (deal.Symbol() != this.Market().GetSymbol()) continue;
+      if (deal.Symbol() != Market().GetSymbol()) continue;
       double profit = deal.Profit();
       */
       double profit = 0;
@@ -240,7 +332,7 @@ public:
     }
     lotsize = twins   > 1 ? lotsize + (lotsize / 100 * win_factor * twins): lotsize;
     lotsize = tlosses > 1 ? lotsize + (lotsize / 100 * loss_factor * tlosses) : lotsize;
-    return this.Market().NormalizeLots(lotsize);
+    return Market().NormalizeLots(lotsize);
   }
 
   /**
@@ -252,17 +344,17 @@ public:
     uint   _method = 0        // Method of calculation (0-3).
     ) {
 
-    double _lot_size = this.Market().GetVolumeMin();
-    double _avail_amount = _method % 2 == 0 ? this.Account().GetMarginAvail() : this.Account().GetRealBalance();
+    double _lot_size = Market().GetVolumeMin();
+    double _avail_amount = _method % 2 == 0 ? Account().GetMarginAvail() : Account().GetRealBalance();
     if (_method == 0 || _method == 1) {
-      _lot_size = this.Market().NormalizeLots(
-        _avail_amount / fmax(0.00001, this.GetMarginRequired() * _risk_ratio) / 100 * _risk_ratio
+      _lot_size = Market().NormalizeLots(
+        _avail_amount / fmax(0.00001, GetMarginRequired() * _risk_ratio) / 100 * _risk_ratio
       );
     } else {
       double _risk_amount = _avail_amount / 100 * _risk_margin;
-      double _risk_value = Convert::MoneyToValue(_risk_amount, this.Market().GetVolumeMin(), this.Market().GetSymbol());
-      double _tick_value = this.Market().GetTickSize();
-      _lot_size = this.Market().NormalizeLots(_risk_value * _tick_value * _risk_ratio);
+      double _risk_value = Convert::MoneyToValue(_risk_amount, Market().GetVolumeMin(), Market().GetSymbol());
+      double _tick_value = Market().GetTickSize();
+      _lot_size = Market().NormalizeLots(_risk_value * _tick_value * _risk_ratio);
     }
     return _lot_size;
   }
@@ -270,10 +362,68 @@ public:
   /* Orders methods */
 
   /**
+   * Open an order.
+   */
+  bool OrderAdd(Order *_order) {
+    unsigned int _last_error = _order.GetData().last_error;
+    Logger().Link(_order.GetData().logger);
+    switch (_last_error) {
+      case ERR_NO_ERROR:
+        orders.Add(_order);
+        order_last = _order;
+        return true;
+      default:
+        Logger().Error(StringFormat("Cannot add order (code: %d, msg: %s)!", _last_error, Terminal::GetErrorText(_last_error)), __FUNCTION_LINE__);
+        return false;
+    }
+    return false;
+  }
+
+  /**
+   * Returns the number of market and pending orders.
+   *
+   * @see:
+   * - https://www.mql5.com/en/docs/trading/orderstotal
+   * - https://www.mql5.com/en/docs/trading/positionstotal
+   */
+  static int OrdersTotal() {
+    #ifdef __MQL4__
+      return ::OrdersTotal();
+    #else
+      return ::OrdersTotal() + ::PositionsTotal();
+    #endif
+  }
+
+  /* Orders close methods */
+
+  /**
+   * Close orders by order type.
+   *
+   * @return
+   *   Returns number of successfully closed trades.
+   *   On error, returns -1.
+   */
+  int OrderCloseViaCmd(ENUM_ORDER_TYPE _cmd, string _comment = "") {
+    int _oid = 0, _closed = 0;
+    Order *_order;
+    for (_oid = 0; _oid < orders.GetSize(); _oid++) {
+      _order = ((Order *) orders.GetByIndex(_oid));
+      if (_order.GetRequest().type == _cmd && _order.IsOpen()) {
+        if (!_order.OrderClose(_comment)) {
+          Logger().LastError(__FUNCTION_LINE__, _order.GetData().last_error);
+          return -1;
+        }
+        order_last = _order;
+      }
+    }
+    return _closed;
+  }
+
+  /**
    * Calculate available lot size given the risk margin.
    */
   uint CalcMaxLotSize(double risk_margin = 1.0) {
-    double _avail_margin = this.Account().AccountAvailMargin();
+    double _avail_margin = Account().AccountAvailMargin();
     double _opened_lots = Trades().GetOpenLots();
     // @todo
     return 0;
@@ -282,11 +432,11 @@ public:
   /**
    * Calculate number of allowed orders to open.
    */
-  uint CalcMaxOrders(double volume_size, double _risk_ratio = 1.0, uint prev_max_orders = 0, uint hard_limit = 0, bool smooth = true) {
-    double _avail_margin = fmin(this.Account().GetMarginFree(), this.Account().GetBalance() + this.Account().GetCredit());
-    double _margin_required = this.GetMarginRequired();
+  unsigned long CalcMaxOrders(double volume_size, double _risk_ratio = 1.0, long prev_max_orders = 0, long hard_limit = 0, bool smooth = true) {
+    double _avail_margin = fmin(Account().GetMarginFree(), Account().GetBalance() + Account().GetCredit());
+    double _margin_required = GetMarginRequired();
     double _avail_orders = _avail_margin / _margin_required / volume_size;
-    uint new_max_orders = (int) (_avail_orders * _risk_ratio);
+    long new_max_orders = (long) (_avail_orders * _risk_ratio);
     if (hard_limit > 0) new_max_orders = fmin(hard_limit, new_max_orders);
     if (smooth && new_max_orders > prev_max_orders) {
       // Increase the limit smoothly.
@@ -310,24 +460,24 @@ public:
      * @return
      *   Returns maximum stop loss price value for the given symbol.
      */
-    double GetMaxSLTP(double _risk_margin = 1.0, ENUM_ORDER_TYPE _cmd = NULL, double _lot_size = 0, ENUM_ORDER_PROPERTY_DOUBLE _mode = ORDER_SL) {
-      double _price = _cmd == NULL ? Order::OrderOpenPrice() : this.Market().GetOpenOffer(_cmd);
+    double GetMaxSLTP(ENUM_ORDER_TYPE _cmd = NULL, double _lot_size = 0, ENUM_ORDER_PROPERTY_DOUBLE _mode = ORDER_SL, double _risk_margin = 1.0) {
+      double _price = _cmd == NULL ? Order::OrderOpenPrice() : Market().GetOpenOffer(_cmd);
       // For the new orders, use the available margin for calculation, otherwise use the account balance.
-      double _margin = Convert::MoneyToValue((_cmd == NULL ? this.Account().GetMarginAvail() : this.Account().GetRealBalance()) / 100 * _risk_margin, _lot_size, this.Market().GetSymbol());
+      double _margin = Convert::MoneyToValue((_cmd == NULL ? Account().GetMarginAvail() : Account().GetRealBalance()) / 100 * _risk_margin, _lot_size, Market().GetSymbol());
       _cmd = _cmd == NULL ? Order::OrderType() : _cmd;
-      _lot_size = _lot_size <= 0 ? fmax(Order::OrderLots(), this.Market().GetVolumeMin()) : _lot_size;
+      _lot_size = _lot_size <= 0 ? fmax(Order::OrderLots(), Market().GetVolumeMin()) : _lot_size;
       return _price
-        + this.Chart().GetTradeDistanceInValue()
+        + Chart().GetTradeDistanceInValue()
         // + Convert::MoneyToValue(AccountInfo().GetRealBalance() / 100 * _risk_margin, _lot_size)
         // + Convert::MoneyToValue(AccountInfo().GetMarginAvail() / 100 * _risk_margin, _lot_size)
         + _margin
         * Order::OrderDirection(_cmd, _mode);
     }
-    double GetMaxSL(double _risk_margin = 1.0, ENUM_ORDER_TYPE _cmd = NULL, double _lot_size = 0) {
-      return GetMaxSLTP(_risk_margin, _cmd, _lot_size, ORDER_SL);
+    double GetMaxSL(ENUM_ORDER_TYPE _cmd = NULL, double _lot_size = 0, double _risk_margin = 1.0) {
+      return GetMaxSLTP(_cmd, _lot_size, ORDER_SL, _risk_margin);
     }
-    double GetMaxTP(double _risk_margin = 1.0, ENUM_ORDER_TYPE _cmd = NULL, double _lot_size = 0) {
-      return GetMaxSLTP(_risk_margin, _cmd, _lot_size, ORDER_TP);
+    double GetMaxTP(ENUM_ORDER_TYPE _cmd = NULL, double _lot_size = 0, double _risk_margin = 1.0) {
+      return GetMaxSLTP(_cmd, _lot_size, ORDER_TP, _risk_margin);
     }
 
     /**
@@ -338,10 +488,10 @@ public:
       ENUM_ORDER_TYPE _cmd,             // Order type (e.g. buy or sell).
       ENUM_ORDER_PROPERTY_DOUBLE _mode  // Type of value (stop loss or take profit).
     ) {
-      double _price = _cmd == NULL ? Order::OrderOpenPrice() : this.Market().GetOpenOffer(_cmd);
+      double _price = _cmd == NULL ? Order::OrderOpenPrice() : Market().GetOpenOffer(_cmd);
       _cmd = _cmd == NULL ? Order::OrderType() : _cmd;
-      // PrintFormat("#%d: %s/%s: %g (%g/%g) + %g * %g * %g = %g", Order::OrderTicket(), EnumToString(_cmd), EnumToString(_mode), _price, Bid, Ask, _value, this.Market().GetPipSize(), Order::OrderDirection(_cmd, _mode), this.Market().GetOpenOffer(_cmd) + _value * this.Market().GetPipSize() * Order::OrderDirection(_cmd, _mode));
-      return _value > 0 ? _price + _value * this.Market().GetPipSize() * Order::OrderDirection(_cmd, _mode) : 0;
+      // PrintFormat("#%d: %s/%s: %g (%g/%g) + %g * %g * %g = %g", Order::OrderTicket(), EnumToString(_cmd), EnumToString(_mode), _price, Bid, Ask, _value, Market().GetPipSize(), Order::OrderDirection(_cmd, _mode), Market().GetOpenOffer(_cmd) + _value * Market().GetPipSize() * Order::OrderDirection(_cmd, _mode));
+      return _value > 0 ? _price + _value * Market().GetPipSize() * Order::OrderDirection(_cmd, _mode) : 0;
     }
     double CalcOrderSL(double _value, ENUM_ORDER_TYPE _cmd = NULL) {
       return CalcOrderSLTP(_value, _cmd, ORDER_SL);
@@ -355,22 +505,22 @@ public:
      */
     double GetSaferSLTP(double _value1, double _value2, ENUM_ORDER_TYPE _cmd, ENUM_ORDER_PROPERTY_DOUBLE _mode) {
       if (_value1 <= 0 || _value2 <= 0) {
-        return this.Market().NormalizeSLTP(fmax(_value1, _value2), _cmd, _mode);
+        return Market().NormalizeSLTP(fmax(_value1, _value2), _cmd, _mode);
       }
       switch (_cmd) {
         case ORDER_TYPE_BUY_LIMIT:
         case ORDER_TYPE_BUY:
           switch (_mode) {
-            case ORDER_SL: return this.Market().NormalizeSLTP(_value1 > _value2 ? _value1 : _value2, _cmd, _mode);
-            case ORDER_TP: return this.Market().NormalizeSLTP(_value1 < _value2 ? _value1 : _value2, _cmd, _mode);
+            case ORDER_SL: return Market().NormalizeSLTP(_value1 > _value2 ? _value1 : _value2, _cmd, _mode);
+            case ORDER_TP: return Market().NormalizeSLTP(_value1 < _value2 ? _value1 : _value2, _cmd, _mode);
             default: Logger().Error(StringFormat("Invalid mode: %s!", EnumToString(_mode), __FUNCTION__));
           }
           break;
         case ORDER_TYPE_SELL_LIMIT:
         case ORDER_TYPE_SELL:
           switch (_mode) {
-            case ORDER_SL: return this.Market().NormalizeSLTP(_value1 < _value2 ? _value1 : _value2, _cmd, _mode);
-            case ORDER_TP: return this.Market().NormalizeSLTP(_value1 > _value2 ? _value1 : _value2, _cmd, _mode);
+            case ORDER_SL: return Market().NormalizeSLTP(_value1 < _value2 ? _value1 : _value2, _cmd, _mode);
+            case ORDER_TP: return Market().NormalizeSLTP(_value1 > _value2 ? _value1 : _value2, _cmd, _mode);
             default: Logger().Error(StringFormat("Invalid mode: %s!", EnumToString(_mode), __FUNCTION__));
           }
           break;
@@ -400,14 +550,13 @@ public:
     double CalcBestSLTP(
       double _value,                      // Suggested value.
       double _max_pips,                   // Maximal amount of pips.
-      double _max_order_risk,             // Maximal risk in balance percentage.
       ENUM_ORDER_PROPERTY_DOUBLE _mode,   // Type of value (stop loss or take profit).
       ENUM_ORDER_TYPE _cmd = NULL,        // Order type (e.g. buy or sell).
       double _lot_size = 0                // Lot size of the order.
     ) {
       double _max_value1 = _max_pips > 0 ? CalcOrderSLTP(_max_pips, _cmd, _mode) : 0;
-      double _max_value2 = _max_order_risk > 0 ? GetMaxSLTP(_max_order_risk, _cmd, _lot_size, _mode) : 0;
-      double _res = this.Market().NormalizePrice(GetSaferSLTP(_value, _max_value1, _max_value2, _cmd, _mode));
+      double _max_value2 = trade_params.risk_margin > 0 ? GetMaxSLTP(_cmd, _lot_size, _mode) : 0;
+      double _res = Market().NormalizePrice(GetSaferSLTP(_value, _max_value1, _max_value2, _cmd, _mode));
       // PrintFormat("%s/%s: Value: %g", EnumToString(_cmd), EnumToString(_mode), _value);
       // PrintFormat("%s/%s: Max value 1: %g", EnumToString(_cmd), EnumToString(_mode), _max_value1);
       // PrintFormat("%s/%s: Max value 2: %g", EnumToString(_cmd), EnumToString(_mode), _max_value2);
@@ -438,8 +587,8 @@ public:
   double GetTrend(int method, ENUM_TIMEFRAMES _tf = NULL, bool simple = false) {
     static datetime _last_trend_check = 0;
     static double _last_trend = 0;
-    string symbol = this.Market().GetSymbol();
-    if (_last_trend_check == this.Chart().GetBarTime(_tf)) {
+    string symbol = Market().GetSymbol();
+    if (_last_trend_check == Chart().GetBarTime(_tf)) {
       return _last_trend;
     }
     double bull = 0, bear = 0;
@@ -447,97 +596,97 @@ public:
 
     if (simple && method != 0) {
       if ((method &   1) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_MN1, 0) > this.Chart().GetClose(PERIOD_MN1, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_MN1, 0) < this.Chart().GetClose(PERIOD_MN1, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_MN1, 0) > Chart().GetClose(PERIOD_MN1, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_MN1, 0) < Chart().GetClose(PERIOD_MN1, 1)) bear++;
       }
       if ((method &   2) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_W1, 0) > this.Chart().GetClose(PERIOD_W1, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_W1, 0) < this.Chart().GetClose(PERIOD_W1, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_W1, 0) > Chart().GetClose(PERIOD_W1, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_W1, 0) < Chart().GetClose(PERIOD_W1, 1)) bear++;
       }
       if ((method &   4) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_D1, 0) > this.Chart().GetClose(PERIOD_D1, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_D1, 0) < this.Chart().GetClose(PERIOD_D1, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_D1, 0) > Chart().GetClose(PERIOD_D1, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_D1, 0) < Chart().GetClose(PERIOD_D1, 1)) bear++;
       }
       if ((method &   8) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_H4, 0) > this.Chart().GetClose(PERIOD_H4, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_H4, 0) < this.Chart().GetClose(PERIOD_H4, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_H4, 0) > Chart().GetClose(PERIOD_H4, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_H4, 0) < Chart().GetClose(PERIOD_H4, 1)) bear++;
       }
       if ((method &   16) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_H1, 0) > this.Chart().GetClose(PERIOD_H1, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_H1, 0) < this.Chart().GetClose(PERIOD_H1, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_H1, 0) > Chart().GetClose(PERIOD_H1, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_H1, 0) < Chart().GetClose(PERIOD_H1, 1)) bear++;
       }
       if ((method &   32) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_M30, 0) > this.Chart().GetClose(PERIOD_M30, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_M30, 0) < this.Chart().GetClose(PERIOD_M30, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_M30, 0) > Chart().GetClose(PERIOD_M30, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_M30, 0) < Chart().GetClose(PERIOD_M30, 1)) bear++;
       }
       if ((method &   64) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_M15, 0) > this.Chart().GetClose(PERIOD_M15, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_M15, 0) < this.Chart().GetClose(PERIOD_M15, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_M15, 0) > Chart().GetClose(PERIOD_M15, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_M15, 0) < Chart().GetClose(PERIOD_M15, 1)) bear++;
       }
       if ((method &  128) != 0)  {
-        if (this.Chart().GetOpen(PERIOD_M5, 0) > this.Chart().GetClose(PERIOD_M5, 1)) bull++;
-        if (this.Chart().GetOpen(PERIOD_M5, 0) < this.Chart().GetClose(PERIOD_M5, 1)) bear++;
+        if (Chart().GetOpen(PERIOD_M5, 0) > Chart().GetClose(PERIOD_M5, 1)) bull++;
+        if (Chart().GetOpen(PERIOD_M5, 0) < Chart().GetClose(PERIOD_M5, 1)) bear++;
       }
-      //if (this.Chart().GetOpen(PERIOD_H12, 0) > this.Chart().GetClose(PERIOD_H12, 1)) bull++;
-      //if (this.Chart().GetOpen(PERIOD_H12, 0) < this.Chart().GetClose(PERIOD_H12, 1)) bear++;
-      //if (this.Chart().GetOpen(PERIOD_H8, 0) > this.Chart().GetClose(PERIOD_H8, 1)) bull++;
-      //if (this.Chart().GetOpen(PERIOD_H8, 0) < this.Chart().GetClose(PERIOD_H8, 1)) bear++;
-      //if (this.Chart().GetOpen(PERIOD_H6, 0) > this.Chart().GetClose(PERIOD_H6, 1)) bull++;
-      //if (this.Chart().GetOpen(PERIOD_H6, 0) < this.Chart().GetClose(PERIOD_H6, 1)) bear++;
-      //if (this.Chart().GetOpen(PERIOD_H2, 0) > this.Chart().GetClose(PERIOD_H2, 1)) bull++;
-      //if (this.Chart().GetOpen(PERIOD_H2, 0) < this.Chart().GetClose(PERIOD_H2, 1)) bear++;
+      //if (Chart().GetOpen(PERIOD_H12, 0) > Chart().GetClose(PERIOD_H12, 1)) bull++;
+      //if (Chart().GetOpen(PERIOD_H12, 0) < Chart().GetClose(PERIOD_H12, 1)) bear++;
+      //if (Chart().GetOpen(PERIOD_H8, 0) > Chart().GetClose(PERIOD_H8, 1)) bull++;
+      //if (Chart().GetOpen(PERIOD_H8, 0) < Chart().GetClose(PERIOD_H8, 1)) bear++;
+      //if (Chart().GetOpen(PERIOD_H6, 0) > Chart().GetClose(PERIOD_H6, 1)) bull++;
+      //if (Chart().GetOpen(PERIOD_H6, 0) < Chart().GetClose(PERIOD_H6, 1)) bear++;
+      //if (Chart().GetOpen(PERIOD_H2, 0) > Chart().GetClose(PERIOD_H2, 1)) bull++;
+      //if (Chart().GetOpen(PERIOD_H2, 0) < Chart().GetClose(PERIOD_H2, 1)) bear++;
     } else if (method != 0) {
       if ((method %   1) == 0)  {
         for (_counter = 0; _counter < 3; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_MN1, _counter) > this.Chart().GetClose(PERIOD_MN1, _counter + 1)) bull += 30;
-          else if (this.Chart().GetOpen(PERIOD_MN1, _counter) < this.Chart().GetClose(PERIOD_MN1, _counter + 1)) bear += 30;
+          if (Chart().GetOpen(PERIOD_MN1, _counter) > Chart().GetClose(PERIOD_MN1, _counter + 1)) bull += 30;
+          else if (Chart().GetOpen(PERIOD_MN1, _counter) < Chart().GetClose(PERIOD_MN1, _counter + 1)) bear += 30;
         }
       }
       if ((method %   2) == 0)  {
         for (_counter = 0; _counter < 8; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_W1, _counter) > this.Chart().GetClose(PERIOD_W1, _counter + 1)) bull += 7;
-          else if (this.Chart().GetOpen(PERIOD_W1, _counter) < this.Chart().GetClose(PERIOD_W1, _counter + 1)) bear += 7;
+          if (Chart().GetOpen(PERIOD_W1, _counter) > Chart().GetClose(PERIOD_W1, _counter + 1)) bull += 7;
+          else if (Chart().GetOpen(PERIOD_W1, _counter) < Chart().GetClose(PERIOD_W1, _counter + 1)) bear += 7;
         }
       }
       if ((method %   4) == 0)  {
         for (_counter = 0; _counter < 7; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_D1, _counter) > this.Chart().GetClose(PERIOD_D1, _counter + 1)) bull += 1440/1440;
-          else if (this.Chart().GetOpen(PERIOD_D1, _counter) < this.Chart().GetClose(PERIOD_D1, _counter + 1)) bear += 1440/1440;
+          if (Chart().GetOpen(PERIOD_D1, _counter) > Chart().GetClose(PERIOD_D1, _counter + 1)) bull += 1440/1440;
+          else if (Chart().GetOpen(PERIOD_D1, _counter) < Chart().GetClose(PERIOD_D1, _counter + 1)) bear += 1440/1440;
         }
       }
       if ((method %   8) == 0)  {
         for (_counter = 0; _counter < 24; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_H4, _counter) > this.Chart().GetClose(PERIOD_H4, _counter + 1)) bull += 240/1440;
-          else if (this.Chart().GetOpen(PERIOD_H4, _counter) < this.Chart().GetClose(PERIOD_H4, _counter + 1)) bear += 240/1440;
+          if (Chart().GetOpen(PERIOD_H4, _counter) > Chart().GetClose(PERIOD_H4, _counter + 1)) bull += 240/1440;
+          else if (Chart().GetOpen(PERIOD_H4, _counter) < Chart().GetClose(PERIOD_H4, _counter + 1)) bear += 240/1440;
         }
       }
       if ((method %   16) == 0)  {
         for (_counter = 0; _counter < 24; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_H1, _counter) > this.Chart().GetClose(PERIOD_H1, _counter + 1)) bull += 60/1440;
-          else if (this.Chart().GetOpen(PERIOD_H1, _counter) < this.Chart().GetClose(PERIOD_H1, _counter + 1)) bear += 60/1440;
+          if (Chart().GetOpen(PERIOD_H1, _counter) > Chart().GetClose(PERIOD_H1, _counter + 1)) bull += 60/1440;
+          else if (Chart().GetOpen(PERIOD_H1, _counter) < Chart().GetClose(PERIOD_H1, _counter + 1)) bear += 60/1440;
         }
       }
       if ((method %   32) == 0)  {
         for (_counter = 0; _counter < 48; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_M30, _counter) > this.Chart().GetClose(PERIOD_M30, _counter + 1)) bull += 30/1440;
-          else if (this.Chart().GetOpen(PERIOD_M30, _counter) < this.Chart().GetClose(PERIOD_M30, _counter + 1)) bear += 30/1440;
+          if (Chart().GetOpen(PERIOD_M30, _counter) > Chart().GetClose(PERIOD_M30, _counter + 1)) bull += 30/1440;
+          else if (Chart().GetOpen(PERIOD_M30, _counter) < Chart().GetClose(PERIOD_M30, _counter + 1)) bear += 30/1440;
         }
       }
       if ((method %   64) == 0)  {
         for (_counter = 0; _counter < 96; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_M15, _counter) > this.Chart().GetClose(PERIOD_M15, _counter + 1)) bull += 15/1440;
-          else if (this.Chart().GetOpen(PERIOD_M15, _counter) < this.Chart().GetClose(PERIOD_M15, _counter + 1)) bear += 15/1440;
+          if (Chart().GetOpen(PERIOD_M15, _counter) > Chart().GetClose(PERIOD_M15, _counter + 1)) bull += 15/1440;
+          else if (Chart().GetOpen(PERIOD_M15, _counter) < Chart().GetClose(PERIOD_M15, _counter + 1)) bear += 15/1440;
         }
       }
       if ((method %  128) == 0)  {
         for (_counter = 0; _counter < 288; _counter++) {
-          if (this.Chart().GetOpen(PERIOD_M5, _counter) > this.Chart().GetClose(PERIOD_M5, _counter + 1)) bull += 5/1440;
-          else if (this.Chart().GetOpen(PERIOD_M5, _counter) < this.Chart().GetClose(PERIOD_M5, _counter + 1)) bear += 5/1440;
+          if (Chart().GetOpen(PERIOD_M5, _counter) > Chart().GetClose(PERIOD_M5, _counter + 1)) bull += 5/1440;
+          else if (Chart().GetOpen(PERIOD_M5, _counter) < Chart().GetClose(PERIOD_M5, _counter + 1)) bear += 5/1440;
         }
       }
     }
     _last_trend = (bull - bear);
-    _last_trend_check = this.Chart().GetBarTime(_tf, 0);
+    _last_trend_check = Chart().GetBarTime(_tf, 0);
     Logger().Debug(StringFormat("%s: %g", __FUNCTION__, _last_trend));
     return _last_trend;
   }
@@ -569,7 +718,19 @@ public:
    * Checks if trading is allowed for the current terminal, account and running program.
    */
   bool IsTradeAllowed() {
-    return this.Terminal().CheckPermissionToTrade() && this.Account().IsExpertEnabled() && this.Account().IsTradeAllowed();
+    return Terminal().CheckPermissionToTrade() && Account().IsExpertEnabled() && Account().IsTradeAllowed();
+  }
+
+  /**
+   * Check the limit on the number of active pending orders.
+   *
+   * Validate whether the amount of open and pending orders
+   * has reached the limit set by the broker.
+   *
+   * @see: https://www.mql5.com/en/articles/2555#account_limit_pending_orders
+   */
+  bool IsOrderAllowed() {
+    return (OrdersTotal() < Account().GetLimitOrders());
   }
 
   /* Printers */
@@ -587,46 +748,53 @@ public:
   /* Class handlers */
 
   /**
-   * Returns access to Account class.
+   * Returns pointer to Account class.
    */
   Account *Account() {
     return trade_params.account;
   }
 
   /**
-   * Returns access to Orders class.
+   * Returns pointer to Orders collection.
+   */
+  Collection *Orders() {
+    return orders;
+  }
+
+  /**
+   * Returns pointer to account's trades.
    */
   Orders *Trades() {
     return trade_params.account.Trades();
   }
 
   /**
-   * Return access to Market class.
+   * Return pointer to Market class.
    */
   Market *Market() {
     return (Market *) GetPointer(trade_params.chart);
   }
 
   /**
-   * Returns access to the current chart.
+   * Returns pointer to Chart class.
    */
   Chart *Chart() {
     return (Chart *) GetPointer(trade_params.chart);
   }
 
   /**
-   * Returns access to the current terminal.
+   * Returns pointer to the Terminal class.
    */
   Terminal *Terminal() {
     return (Terminal *) GetPointer(trade_params.chart);
   }
 
   /**
-   * Returns access to Log class.
+   * Returns pointer to Log class.
    */
   Log *Logger() {
     return trade_params.logger;
   }
 
 };
-#endif
+#endif // TRADE_MQH
