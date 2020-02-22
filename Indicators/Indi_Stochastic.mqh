@@ -50,7 +50,7 @@ struct Stoch_Params : IndicatorParams {
 /**
  * Implements the Stochastic Oscillator.
  */
-class Indi_Stochastic : public Indicator {
+class Indi_Stochastic : public Indicator<StochEntry> {
 
  protected:
 
@@ -94,7 +94,7 @@ class Indi_Stochastic : public Indicator {
                                   // (MT5 _price_field): STO_LOWHIGH - Low/High, STO_CLOSECLOSE - Close/Close
     int _mode,                    // (MT4): 0 - MODE_MAIN/MAIN_LINE, 1 - MODE_SIGNAL/SIGNAL_LINE
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<StochEntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

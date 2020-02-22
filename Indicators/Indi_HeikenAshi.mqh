@@ -56,7 +56,7 @@ struct HeikenAshiEntry : IndicatorEntry {
 /**
  * Implements the Heiken-Ashi indicator.
  */
-class Indi_HeikenAshi : public Indicator {
+class Indi_HeikenAshi : public Indicator<HeikenAshiEntry> {
 
  public:
 
@@ -84,7 +84,7 @@ class Indi_HeikenAshi : public Indicator {
     ENUM_TIMEFRAMES _tf,
     ENUM_HA_MODE _mode,
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<HeikenAshiEntry> *_obj = NULL
     ) {
     #ifdef __MQL4__
     return ::iCustom(_symbol, _tf, "Heiken Ashi", _mode, _shift);

@@ -40,7 +40,7 @@ struct WPR_Params : IndicatorParams {
 /**
  * Implements the Larry Williams' Percent Range.
  */
-class Indi_WPR : public Indicator {
+class Indi_WPR : public Indicator<WPREntry> {
 
  protected:
 
@@ -76,7 +76,7 @@ class Indi_WPR : public Indicator {
     ENUM_TIMEFRAMES _tf = PERIOD_CURRENT,
     unsigned int _period = 14,
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<WPREntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

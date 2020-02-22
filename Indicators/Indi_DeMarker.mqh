@@ -41,7 +41,7 @@ struct DeMarker_Params : IndicatorParams {
 /**
  * Implements the DeMarker indicator.
  */
-class Indi_DeMarker : public Indicator {
+class Indi_DeMarker : public Indicator<DeMarkerEntry> {
 
  public:
 
@@ -75,7 +75,7 @@ class Indi_DeMarker : public Indicator {
       ENUM_TIMEFRAMES _tf,
       unsigned int _period,
       int _shift = 0,
-      Indicator *_obj = NULL
+      Indicator<DeMarkerEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iDeMarker(_symbol, _tf, _period, _shift);

@@ -29,13 +29,13 @@ struct BWMFIEntry : IndicatorEntry {
   string ToString(int _mode = EMPTY) {
     return StringFormat("%g", value);
   }
-  bool IsValid() { return value != WRONG_VALUE && value != EMPTY_VALUE; }
+  bool IsValid() { return value != 0 && value != WRONG_VALUE && value != EMPTY_VALUE; }
 };
 
 /**
  * Implements the Market Facilitation Index indicator.
  */
-class Indi_BWMFI : public Indicator {
+class Indi_BWMFI : public Indicator<BWMFIEntry> {
 
  public:
 
@@ -66,7 +66,7 @@ class Indi_BWMFI : public Indicator {
     string _symbol = NULL,
     ENUM_TIMEFRAMES _tf = PERIOD_CURRENT,
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<BWMFIEntry> *_obj = NULL
     ) {
 #ifdef __MQL4__
     return ::iBWMFI(_symbol, _tf, _shift);

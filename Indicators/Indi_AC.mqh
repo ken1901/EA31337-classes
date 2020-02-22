@@ -36,7 +36,7 @@ struct ACEntry : IndicatorEntry {
 /**
  * Implements the Bill Williams' Accelerator/Decelerator oscillator.
  */
-class Indi_AC : public Indicator {
+class Indi_AC : public Indicator<ACEntry> {
 
  public:
 
@@ -69,7 +69,7 @@ class Indi_AC : public Indicator {
       string _symbol = NULL,
       ENUM_TIMEFRAMES _tf = PERIOD_CURRENT,
       int _shift = 0,
-      Indicator *_obj = NULL
+      Indicator<ACEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iAC(_symbol, _tf, _shift);

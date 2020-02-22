@@ -47,7 +47,7 @@ struct MA_Params : IndicatorParams {
 /**
  * Implements the Moving Average indicator.
  */
-class Indi_MA : public Indicator {
+class Indi_MA : public Indicator<MAEntry> {
 
  protected:
 
@@ -86,7 +86,7 @@ class Indi_MA : public Indicator {
     ENUM_MA_METHOD _ma_method,          // (MT4/MT5): MODE_SMA, MODE_EMA, MODE_SMMA, MODE_LWMA
     ENUM_APPLIED_PRICE _applied_price,  // (MT4/MT5): PRICE_CLOSE, PRICE_OPEN, PRICE_HIGH, PRICE_LOW, PRICE_MEDIAN, PRICE_TYPICAL, PRICE_WEIGHTED
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<MAEntry> *_obj = NULL
     )
   {
     ResetLastError();

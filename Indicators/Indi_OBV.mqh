@@ -29,22 +29,21 @@ struct OBVEntry : IndicatorEntry {
   string ToString(int _mode = EMPTY) {
     return StringFormat("%g", value);
   }
-  bool IsValid() { return value != WRONG_VALUE && value != EMPTY_VALUE; }
+  bool IsValid() { return value != 0 && value != WRONG_VALUE && value != EMPTY_VALUE; }
 };
 struct OBV_Params : IndicatorParams {
   ENUM_APPLIED_PRICE applied_price; // MT4 only.
   ENUM_APPLIED_VOLUME applied_volume; // MT5 only.
   // Constructor.
-  void OBV_Params(ENUM_APPLIED_VOLUME _av = EMPTY)
-    : applied_volume(_av) {};
-  void OBV_Params(ENUM_APPLIED_PRICE _ap = EMPTY)
-    : applied_price(_ap) {};
+  void OBV_Params() : applied_price(PRICE_CLOSE), applied_volume(VOLUME_TICK) {};
+  void OBV_Params(ENUM_APPLIED_PRICE _ap) : applied_price(_ap) {};
+  void OBV_Params(ENUM_APPLIED_VOLUME _av) : applied_volume(_av) {};
 };
 
 /**
  * Implements the On Balance Volume indicator.
  */
-class Indi_OBV : public Indicator {
+class Indi_OBV : public Indicator<OBVEntry> {
 
  protected:
 
@@ -90,7 +89,7 @@ class Indi_OBV : public Indicator {
     ENUM_TIMEFRAMES _tf,
     ENUM_APPLIED_PRICE _applied_price, // MT4 only.
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<OBVEntry> *_obj = NULL
     ) {
 #ifdef __MQL4__
     return ::iOBV(_symbol, _tf, _applied_price, _shift);
@@ -122,7 +121,7 @@ class Indi_OBV : public Indicator {
     ENUM_TIMEFRAMES _tf,
     ENUM_APPLIED_VOLUME _applied_volume, // MT5 only.
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<OBVEntry> *_obj = NULL
     ) {
 #ifdef __MQL4__
     return ::iOBV(_symbol, _tf, PRICE_CLOSE, _shift);

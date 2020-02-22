@@ -62,7 +62,7 @@ struct Bands_Params : IndicatorParams {
 /**
  * Implements the Bollinger Bands® indicator.
  */
-class Indi_Bands : public Indicator {
+class Indi_Bands : public Indicator<BandsEntry> {
 
  protected:
 
@@ -105,7 +105,7 @@ class Indi_Bands : public Indicator {
     ENUM_APPLIED_PRICE _applied_price, // (MT4/MT5): PRICE_CLOSE, PRICE_OPEN, PRICE_HIGH, PRICE_LOW, PRICE_MEDIAN, PRICE_TYPICAL, PRICE_WEIGHTED
     ENUM_BANDS_LINE _mode = BAND_BASE, // (MT4/MT5): 0 - MODE_MAIN/BASE_LINE, 1 - MODE_UPPER/UPPER_BAND, 2 - MODE_LOWER/LOWER_BAND
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<BandsEntry> *_obj = NULL
     )
   {
     ResetLastError();

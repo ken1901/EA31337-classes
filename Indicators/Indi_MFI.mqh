@@ -42,7 +42,7 @@ struct MFI_Params : IndicatorParams {
 /**
  * Implements the Money Flow Index indicator.
  */
-class Indi_MFI : public Indicator {
+class Indi_MFI : public Indicator<MFIEntry> {
 
  protected:
 
@@ -78,7 +78,7 @@ class Indi_MFI : public Indicator {
       ENUM_TIMEFRAMES _tf,
       unsigned int _period,
       int _shift = 0,
-      Indicator *_obj = NULL
+      Indicator<MFIEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iMFI(_symbol, _tf, _period, _shift);

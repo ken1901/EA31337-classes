@@ -56,7 +56,7 @@ struct Alligator_Params : IndicatorParams {
 /**
  * Implements the Alligator indicator.
  */
-class Indi_Alligator : public Indicator {
+class Indi_Alligator : public Indicator<AlligatorEntry> {
 
  public:
 
@@ -110,7 +110,7 @@ class Indi_Alligator : public Indicator {
     ENUM_APPLIED_PRICE _applied_price, // (MT4/MT5): PRICE_CLOSE, PRICE_OPEN, PRICE_HIGH, PRICE_LOW, PRICE_MEDIAN, PRICE_TYPICAL, PRICE_WEIGHTED
     ENUM_GATOR_LINE _mode,             // (MT4 _mode): 1 - MODE_GATORJAW, 2 - MODE_GATORTEETH, 3 - MODE_GATORLIPS
     int _shift = 0,                    // (MT5 _mode): 0 - GATORJAW_LINE, 1 - GATORTEETH_LINE, 2 - GATORLIPS_LINE
-    Indicator *_obj = NULL
+    Indicator<AlligatorEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iAlligator(_symbol, _tf, _jaw_period, _jaw_shift, _teeth_period, _teeth_shift, _lips_period, _lips_shift, _ma_method, _applied_price, _mode, _shift);

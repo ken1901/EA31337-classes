@@ -42,7 +42,7 @@ struct BearsPower_Params : IndicatorParams {
 /**
  * Implements the Bears Power indicator.
  */
-class Indi_BearsPower : public Indicator {
+class Indi_BearsPower : public Indicator<BearsPowerEntry> {
 
  public:
 
@@ -77,7 +77,7 @@ class Indi_BearsPower : public Indicator {
     unsigned int _period,
     ENUM_APPLIED_PRICE _applied_price, // (MT5): not used
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<BearsPowerEntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

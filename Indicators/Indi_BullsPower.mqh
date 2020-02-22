@@ -42,7 +42,7 @@ struct BullsPower_Params : IndicatorParams {
 /**
  * Implements the Bulls Power indicator.
  */
-class Indi_BullsPower : public Indicator {
+class Indi_BullsPower : public Indicator<BullsPowerEntry> {
 
  protected:
 
@@ -81,7 +81,7 @@ class Indi_BullsPower : public Indicator {
     unsigned int _period,
     ENUM_APPLIED_PRICE _applied_price, // (MT5): not used
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<BullsPowerEntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

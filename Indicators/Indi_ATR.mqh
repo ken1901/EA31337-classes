@@ -41,7 +41,7 @@ struct ATR_Params : IndicatorParams {
 /**
  * Implements the Average True Range indicator.
  */
-class Indi_ATR : public Indicator {
+class Indi_ATR : public Indicator<ATREntry> {
 
  public:
 
@@ -75,7 +75,7 @@ class Indi_ATR : public Indicator {
     ENUM_TIMEFRAMES _tf,
     unsigned int _period,
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<ATREntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

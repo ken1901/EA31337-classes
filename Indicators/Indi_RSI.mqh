@@ -42,7 +42,7 @@ struct RSI_Params : IndicatorParams {
 /**
  * Implements the Relative Strength Index indicator.
  */
-class Indi_RSI : public Indicator {
+class Indi_RSI : public Indicator<RSIEntry> {
 
  protected:
 
@@ -79,7 +79,7 @@ class Indi_RSI : public Indicator {
     unsigned int _period = 14,
     ENUM_APPLIED_PRICE _applied_price = PRICE_CLOSE, // (MT4/MT5): PRICE_CLOSE, PRICE_OPEN, PRICE_HIGH, PRICE_LOW, PRICE_MEDIAN, PRICE_TYPICAL, PRICE_WEIGHTED
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<RSIEntry> *_obj = NULL
     )
   {
     #ifdef __MQL4__

@@ -42,7 +42,7 @@ struct Momentum_Params : IndicatorParams {
 /**
  * Implements the Momentum indicator.
  */
-class Indi_Momentum : public Indicator {
+class Indi_Momentum : public Indicator<MomentumEntry> {
 
  protected:
 
@@ -79,7 +79,7 @@ class Indi_Momentum : public Indicator {
     unsigned int _period,
     ENUM_APPLIED_PRICE _applied_price,  // (MT4/MT5): PRICE_CLOSE, PRICE_OPEN, PRICE_HIGH, PRICE_LOW, PRICE_MEDIAN, PRICE_TYPICAL, PRICE_WEIGHTED
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<MomentumEntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

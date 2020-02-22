@@ -39,7 +39,7 @@ struct FractalsEntry : IndicatorEntry {
 /**
  * Implements the Fractals indicator.
  */
-class Indi_Fractals : public Indicator {
+class Indi_Fractals : public Indicator<FractalsEntry> {
 
  public:
 
@@ -71,7 +71,7 @@ class Indi_Fractals : public Indicator {
       ENUM_TIMEFRAMES _tf,
       ENUM_LO_UP_LINE _mode,     // (MT4 _mode): 1 - MODE_UPPER, 2 - MODE_LOWER
       int _shift = 0,            // (MT5 _mode): 0 - UPPER_LINE, 1 - LOWER_LINE
-      Indicator *_obj = NULL
+      Indicator<FractalsEntry> *_obj = NULL
       ) {
     #ifdef __MQL4__
     return ::iFractals(_symbol, _tf, _mode, _shift);

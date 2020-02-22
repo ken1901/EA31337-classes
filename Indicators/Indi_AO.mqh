@@ -35,7 +35,7 @@ struct AOEntry : IndicatorEntry {
 /**
  * Implements the Awesome oscillator.
  */
-class Indi_AO : public Indicator {
+class Indi_AO : public Indicator<AOEntry> {
 
  public:
 
@@ -66,7 +66,7 @@ class Indi_AO : public Indicator {
       string _symbol = NULL,
       ENUM_TIMEFRAMES _tf = PERIOD_CURRENT,
       int _shift = 0,
-      Indicator *_obj = NULL
+      Indicator<AOEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iAO(_symbol, _tf, _shift);

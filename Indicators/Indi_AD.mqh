@@ -30,13 +30,13 @@ struct ADEntry : IndicatorEntry {
   string ToString(int _mode = EMPTY) {
     return StringFormat("%g", value);
   }
-  bool IsValid() { return value != WRONG_VALUE && value != EMPTY_VALUE; }
+  bool IsValid() { return value != 0 && value != WRONG_VALUE && value != EMPTY_VALUE; }
 };
 
 /**
  * Implements the Accumulation/Distribution indicator.
  */
-class Indi_AD : public Indicator {
+class Indi_AD : public Indicator<ADEntry> {
 
  public:
 
@@ -69,7 +69,7 @@ class Indi_AD : public Indicator {
       string _symbol = NULL,
       ENUM_TIMEFRAMES _tf = PERIOD_CURRENT,
       int _shift = 0,
-      Indicator *_obj = NULL
+      Indicator<ADEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iAD(_symbol, _tf, _shift);
@@ -77,7 +77,7 @@ class Indi_AD : public Indicator {
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
     if (_handle == NULL || _handle == INVALID_HANDLE) {
-      if ((_handle = ::iAD(_symbol, _tf, VOLUME_REAL)) == INVALID_HANDLE) {
+      if ((_handle = ::iAD(_symbol, _tf, VOLUME_TICK)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);
         return EMPTY_VALUE;
       }

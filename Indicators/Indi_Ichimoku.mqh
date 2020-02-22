@@ -67,7 +67,7 @@ struct Ichimoku_Params : IndicatorParams {
 /**
  * Implements the Ichimoku Kinko Hyo indicator.
  */
-class Indi_Ichimoku : public Indicator {
+class Indi_Ichimoku : public Indicator<IchimokuEntry> {
 
  protected:
 
@@ -108,7 +108,7 @@ class Indi_Ichimoku : public Indicator {
       int _senkou_span_b,
       int _mode,             // (MT4 _mode): 1 - MODE_TENKANSEN, 2 - MODE_KIJUNSEN, 3 - MODE_SENKOUSPANA, 4 - MODE_SENKOUSPANB, 5 - MODE_CHIKOUSPAN
       int _shift = 0,        // (MT5 _mode): 0 - TENKANSEN_LINE, 1 - KIJUNSEN_LINE, 2 - SENKOUSPANA_LINE, 3 - SENKOUSPANB_LINE, 4 - CHIKOUSPAN_LINE
-      Indicator *_obj = NULL
+      Indicator<IchimokuEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iIchimoku(_symbol, _tf, _tenkan_sen, _kijun_sen, _senkou_span_b, _mode, _shift);

@@ -44,7 +44,7 @@ struct OsMA_Params : IndicatorParams {
 /**
  * Implements the Moving Average of Oscillator indicator.
  */
-class Indi_OsMA : public Indicator {
+class Indi_OsMA : public Indicator<OsMAEntry> {
 
  protected:
 
@@ -83,7 +83,7 @@ class Indi_OsMA : public Indicator {
     unsigned int _signal_period,
     ENUM_APPLIED_PRICE _applied_price, // (MT4/MT5): PRICE_CLOSE, PRICE_OPEN, PRICE_HIGH, PRICE_LOW, PRICE_MEDIAN, PRICE_TYPICAL, PRICE_WEIGHTED
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<OsMAEntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

@@ -49,7 +49,7 @@ struct Envelopes_Params : IndicatorParams {
 /**
  * Implements the Envelopes indicator.
  */
-class Indi_Envelopes : public Indicator {
+class Indi_Envelopes : public Indicator<EnvelopesEntry> {
 
  protected:
 
@@ -93,7 +93,7 @@ class Indi_Envelopes : public Indicator {
       double _deviation,
       int _mode,                         // (MT4 _mode): 0 - MODE_MAIN,  1 - MODE_UPPER, 2 - MODE_LOWER; (MT5 _mode): 0 - UPPER_LINE, 1 - LOWER_LINE
       int _shift = 0,
-      Indicator *_obj = NULL
+      Indicator<EnvelopesEntry> *_obj = NULL
       )
     {
       ResetLastError();

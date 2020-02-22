@@ -42,7 +42,7 @@ struct SAR_Params : IndicatorParams {
 /**
  * Implements the Parabolic Stop and Reverse system indicator.
  */
-class Indi_SAR : public Indicator {
+class Indi_SAR : public Indicator<SAREntry> {
 
  protected:
 
@@ -79,7 +79,7 @@ class Indi_SAR : public Indicator {
     double _step = 0.02,
     double _max = 0.2,
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<SAREntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

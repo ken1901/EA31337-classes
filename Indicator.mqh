@@ -264,6 +264,7 @@ struct MqlParam {
 /**
  * Class to deal with indicators.
  */
+template <typename TEntry>
 class Indicator : public Chart {
 
 protected:
@@ -528,7 +529,7 @@ public:
   /**
    * Returns the indicator's struct value.
    */
-  //virtual IndicatorEntry GetEntry(int _shift = 0);
+  virtual TEntry GetEntry(int _shift = 0) = NULL;
 
   /**
    * Returns the indicator's entry value.

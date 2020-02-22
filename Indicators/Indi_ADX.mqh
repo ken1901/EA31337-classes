@@ -61,7 +61,7 @@ struct ADX_Params : IndicatorParams {
 /**
  * Implements the Average Directional Movement Index indicator.
  */
-class Indi_ADX : public Indicator {
+class Indi_ADX : public Indicator<ADXEntry> {
 
  public:
 
@@ -97,7 +97,7 @@ class Indi_ADX : public Indicator {
       ENUM_APPLIED_PRICE _applied_price,   // (MT5): not used
       ENUM_ADX_LINE _mode = LINE_MAIN_ADX, // (MT4/MT5): 0 - MODE_MAIN/MAIN_LINE, 1 - MODE_PLUSDI/PLUSDI_LINE, 2 - MODE_MINUSDI/MINUSDI_LINE
       int _shift = 0,
-      Indicator *_obj = NULL
+      Indicator<ADXEntry> *_obj = NULL
       ) {
 #ifdef __MQL4__
     return ::iADX(_symbol, _tf, _period, _applied_price, _mode, _shift);

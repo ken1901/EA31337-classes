@@ -46,7 +46,7 @@ struct RVI_Params : IndicatorParams {
 /**
  * Implements the Relative Vigor Index indicator.
  */
-class Indi_RVI : public Indicator {
+class Indi_RVI : public Indicator<RVIEntry> {
 
  protected:
 
@@ -83,7 +83,7 @@ class Indi_RVI : public Indicator {
     unsigned int _period = 10,
     ENUM_SIGNAL_LINE _mode = LINE_MAIN,    // (MT4/MT5): 0 - MODE_MAIN/MAIN_LINE, 1 - MODE_SIGNAL/SIGNAL_LINE
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<RVIEntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

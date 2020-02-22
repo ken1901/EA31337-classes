@@ -43,7 +43,7 @@ struct ZigZag_Params : IndicatorParams {
 /**
  * Implements ZigZag indicator.
  */
-class Indi_ZigZag : public Indicator {
+class Indi_ZigZag : public Indicator<ZigZagEntry> {
 
  protected:
 
@@ -79,7 +79,7 @@ class Indi_ZigZag : public Indicator {
     int _deviation,
     int _backstep,
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<ZigZagEntry> *_obj = NULL
     )
   {
 #ifdef __MQL4__

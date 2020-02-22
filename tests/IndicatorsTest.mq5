@@ -65,7 +65,7 @@
 
 // Global variables.
 Chart *chart;
-Dict<long, Indicator*> indis;
+Dict<long, Collection*> indis;
 Dict<long, bool> tested;
 Indi_MA *ma;
 
@@ -97,22 +97,33 @@ void OnTick() {
   static int _count = 0;
   if (chart.IsNewBar()) {
     _count++;
-    for (DictIterator<long, Indicator*> iter = indis.Begin(); iter.IsValid(); ++iter) {
-      Indicator *_indi = iter.Value();
+    if (indis.Size() == 0) {
+      // Ignores processing when all indicators has been tested.
+      return;
+    }
+    for (DictIterator<long, Collection*> iter = indis.Begin(); iter.IsValid(); ++iter) {
+      void *_indi = iter.Value().GetFirstItem();
       MqlParam _value = _indi.GetEntryValue();
       if (_indi.GetState().IsReady()) {
         PrintFormat("%s: bar@%d: %s", _indi.GetName(), _count, _indi.ToString());
+        tested.Set(iter.Key(), true);
         indis.Unset(iter.Key());
       }
     }
   }
 }
 
+template <typename T>
+T *GetIndi(Collection *_c) {
+  return _c.GetFirstItem();
+}
+
 /**
  * Implements Deinit event handler.
  */
 void OnDeinit(const int reason) {
-  //Print("Indicators not tested: ", indis.Size());
+  Print("Indicators not tested: ", indis.Size());
+  assertTrueOrExit(indis.Size() == 0, "Not all indicators has been tested successfully!");
   delete chart;
 }
 
@@ -121,37 +132,37 @@ void OnDeinit(const int reason) {
  */
 bool InitIndicators() {
   // AC.
-  indis.Set(INDI_AC, new Indi_AC());
+  indis.Set(INDI_AC, new Collection(new Indi_AC()));
   // AD.
-  indis.Set(INDI_AD, new Indi_AD());
+  indis.Set(INDI_AD, new Collection(new Indi_AD()));
   // ADX.
   ADX_Params adx_params(14, PRICE_HIGH);
-  indis.Set(INDI_ADX, new Indi_ADX(adx_params));
+  indis.Set(INDI_ADX, new Collection(new Indi_ADX(adx_params)));
   // ADX by Welles Wilder (ADXW).
   // @todo INDI_ADXW
   // Alligator.
   Alligator_Params alli_params(13, 8, 8, 5, 5, 3, MODE_SMMA, PRICE_MEDIAN);
-  indis.Set(INDI_ALLIGATOR, new Indi_Alligator(alli_params));
+  indis.Set(INDI_ALLIGATOR, new Collection(new Indi_Alligator(alli_params)));
   // Adaptive Moving Average (AMA).
   // Awesome Oscillator (AO).
-  indis.Set(INDI_AO, new Indi_AO());
+  indis.Set(INDI_AO, new Collection(new Indi_AO()));
   // Average True Range (ATR).
   ATR_Params atr_params(14);
-  indis.Set(INDI_ATR, new Indi_ATR(atr_params));
+  indis.Set(INDI_ATR, new Collection(new Indi_ATR(atr_params)));
   // Bollinger Bands (Bands).
   Bands_Params bands_params(20, 2, 0, PRICE_LOW);
-  indis.Set(INDI_BANDS, new Indi_Bands(bands_params));
+  indis.Set(INDI_BANDS, new Collection(new Indi_Bands(bands_params)));
   // Bears Power.
   BearsPower_Params bears_params(13, PRICE_CLOSE);
-  indis.Set(INDI_BEARS, new Indi_BearsPower(bears_params));
+  indis.Set(INDI_BEARS, new Collection(new Indi_BearsPower(bears_params)));
   // Bulls Power.
   BullsPower_Params bulls_params(13, PRICE_CLOSE);
-  indis.Set(INDI_BULLS, new Indi_BullsPower(bulls_params));
+  indis.Set(INDI_BULLS, new Collection(new Indi_BullsPower(bulls_params)));
   // Market Facilitation Index (BWMFI).
-  indis.Set(INDI_BWMFI, new Indi_BWMFI());
+  indis.Set(INDI_BWMFI, new Collection(new Indi_BWMFI()));
   // Commodity Channel Index (CCI).
   CCI_Params cci_params(14, PRICE_CLOSE);
-  indis.Set(INDI_CCI, new Indi_CCI(cci_params));
+  indis.Set(INDI_CCI, new Collection(new Indi_CCI(cci_params)));
   // Chaikin Oscillator.
   // @todo INDI_CHAIKIN
   // Double Exponential Moving Average (DEMA).
@@ -159,79 +170,79 @@ bool InitIndicators() {
   // indis.Set(INDI_DEMA, new Indi_Dema(dema_params));
   // DeMarker.
   DeMarker_Params dm_params(14);
-  indis.Set(INDI_DEMARKER, new Indi_DeMarker(dm_params));
+  indis.Set(INDI_DEMARKER, new Collection(new Indi_DeMarker(dm_params)));
   // Envelopes.
   Envelopes_Params env_params(13, 0, MODE_SMA, PRICE_CLOSE, 2);
-  indis.Set(INDI_ENVELOPES, new Indi_Envelopes(env_params));
+  indis.Set(INDI_ENVELOPES, new Collection(new Indi_Envelopes(env_params)));
   // Force Index.
   Force_Params force_params(13, MODE_SMA, PRICE_CLOSE);
-  indis.Set(INDI_FORCE, new Indi_Force(force_params));
+  indis.Set(INDI_FORCE, new Collection(new Indi_Force(force_params)));
   // Fractals.
-  indis.Set(INDI_FRACTALS, new Indi_Fractals());
+  indis.Set(INDI_FRACTALS, new Collection(new Indi_Fractals()));
   // Fractal Adaptive Moving Average (FRAMA).
   // @todo
   // indis.Set(INDI_FRAMA, new Indi_Frama(frama_params));
   // Gator Oscillator.
   Gator_Params gator_params(13, 8, 8, 5, 5, 3, MODE_SMMA, PRICE_MEDIAN);
-  indis.Set(INDI_GATOR, new Indi_Gator(gator_params));
+  indis.Set(INDI_GATOR, new Collection(new Indi_Gator(gator_params)));
   // Heiken Ashi.
-  indis.Set(INDI_HEIKENASHI, new Indi_HeikenAshi());
+  indis.Set(INDI_HEIKENASHI, new Collection(new Indi_HeikenAshi()));
   // Ichimoku Kinko Hyo.
   Ichimoku_Params ichi_params(9, 26, 52);
-  indis.Set(INDI_ICHIMOKU, new Indi_Ichimoku(ichi_params));
+  indis.Set(INDI_ICHIMOKU, new Collection(new Indi_Ichimoku(ichi_params)));
   // Moving Average.
   MA_Params ma_params(13, 10, MODE_SMA, PRICE_CLOSE);
-  indis.Set(INDI_MA, new Indi_MA(ma_params));
+  indis.Set(INDI_MA, new Collection(new Indi_MA(ma_params)));
   // MACD.
   MACD_Params macd_params(12, 26, 9, PRICE_CLOSE);
-  indis.Set(INDI_MACD, new Indi_MACD(macd_params));
+  indis.Set(INDI_MACD, new Collection(new Indi_MACD(macd_params)));
   // Money Flow Index (MFI).
   MFI_Params mfi_params(14);
-  indis.Set(INDI_MFI, new Indi_MFI(mfi_params));
+  indis.Set(INDI_MFI, new Collection(new Indi_MFI(mfi_params)));
   // Momentum (MOM).
   Momentum_Params mom_params(12, PRICE_CLOSE);
-  indis.Set(INDI_MOMENTUM, new Indi_Momentum(mom_params));
+  indis.Set(INDI_MOMENTUM, new Collection(new Indi_Momentum(mom_params)));
   // On Balance Volume (OBV).
   OBV_Params obv_params(PRICE_CLOSE);
-  indis.Set(INDI_OBV, new Indi_OBV(obv_params));
+  indis.Set(INDI_OBV, new Collection(new Indi_OBV(obv_params)));
   // OsMA.
   OsMA_Params osma_params(12, 26, 9, PRICE_CLOSE);
-  indis.Set(INDI_OSMA, new Indi_OsMA(osma_params));
+  indis.Set(INDI_OSMA, new Collection(new Indi_OsMA(osma_params)));
   // Relative Strength Index (RSI).
   RSI_Params rsi_params(14, PRICE_CLOSE);
-  indis.Set(INDI_RSI, new Indi_RSI(rsi_params));
+  indis.Set(INDI_RSI, new Collection(new Indi_RSI(rsi_params)));
   // Relative Vigor Index (RVI).
   RVI_Params rvi_params(14);
-  indis.Set(INDI_RVI, new Indi_RVI(rvi_params));
+  indis.Set(INDI_RVI, new Collection(new Indi_RVI(rvi_params)));
   // Parabolic SAR.
   SAR_Params sar_params(0.02, 0.2);
-  indis.Set(INDI_SAR, new Indi_SAR(sar_params));
+  indis.Set(INDI_SAR, new Collection(new Indi_SAR(sar_params)));
   // Standard Deviation (StdDev).
   StdDev_Params stddev_params(13, 10, MODE_SMA, PRICE_CLOSE);
-  indis.Set(INDI_STDDEV, new Indi_StdDev(stddev_params));
+  indis.Set(INDI_STDDEV, new Collection(new Indi_StdDev(stddev_params)));
   // Stochastic Oscillator.
   Stoch_Params stoch_params(5, 3, 3, MODE_SMMA, STO_LOWHIGH);
-  indis.Set(INDI_STOCHASTIC, new Indi_Stochastic(stoch_params));
+  indis.Set(INDI_STOCHASTIC, new Collection(new Indi_Stochastic(stoch_params)));
   // Triple Exponential Moving Average (TEMA).
   // @todo
-  //indis.Set(INDI_TEMA, new Indi_TEMA(tema_params));
+  //indis.Set(INDI_TEMA, new Collection(new Indi_TEMA(tema_params)));
   // Triple Exponential Moving Averages Oscillator (TRIX).
   // @todo
-  //indis.Set(INDI_TRIX, new Indi_TRIX(trix_params));
+  //indis.Set(INDI_TRIX, new Collection(new Indi_TRIX(trix_params)));
   // Variable Index Dynamic Average (VIDYA).
   // @todo
-  // indis.Set(INDI_VIDYA, new Indi_VIDYA(vidya_params));
+  // indis.Set(INDI_VIDYA, new Collection(new Indi_VIDYA(vidya_params)));
   // Volumes.
   // @todo
-  //indis.Set(INDI_VOLUMES, new Indi_Volumes(vol_params));
+  //indis.Set(INDI_VOLUMES, new Collection(new Indi_Volumes(vol_params)));
   // Williams' Percent Range (WPR).
   WPR_Params wpr_params(14);
-  indis.Set(INDI_WPR, new Indi_WPR(wpr_params));
+  indis.Set(INDI_WPR, new Collection(new Indi_WPR(wpr_params)));
   // ZigZag.
   ZigZag_Params zz_params(12, 5, 3);
-  indis.Set(INDI_ZIGZAG, new Indi_ZigZag(zz_params));
+  indis.Set(INDI_ZIGZAG, new Collection(new Indi_ZigZag(zz_params)));
   // Mark all as untested.
-  for (DictIterator<long, Indicator*> iter = indis.Begin(); iter.IsValid(); ++iter) {
+  for (DictIterator<long, Collection*> iter = indis.Begin(); iter.IsValid(); ++iter) {
     tested.Set(iter.Key(), false);
   }
   return GetLastError() == ERR_NO_ERROR;
@@ -241,8 +252,8 @@ bool InitIndicators() {
  * Print indicators.
  */
 bool PrintIndicators() {
-  for (DictIterator<long, Indicator*> iter = indis.Begin(); iter.IsValid(); ++iter) {
-    Indicator *_indi = iter.Value();
+  for (DictIterator<long, Collection*> iter = indis.Begin(); iter.IsValid(); ++iter) {
+    void *_indi = ((Collection *)iter.Value()).GetFirstItem();
     MqlParam _value = _indi.GetEntryValue();
     if (GetLastError() == ERR_USER_ERROR_FIRST + ERR_USER_INVALID_BUFF_NUM) {
       ResetLastError();

@@ -49,7 +49,7 @@ struct MACD_Params : IndicatorParams {
 /**
  * Implements the Moving Averages Convergence/Divergence indicator.
  */
-class Indi_MACD : public Indicator {
+class Indi_MACD : public Indicator<MACDEntry> {
 
  protected:
 
@@ -91,7 +91,7 @@ class Indi_MACD : public Indicator {
     ENUM_APPLIED_PRICE _applied_price,  // (MT4/MT5): PRICE_CLOSE, PRICE_OPEN, PRICE_HIGH, PRICE_LOW, PRICE_MEDIAN, PRICE_TYPICAL, PRICE_WEIGHTED
     ENUM_SIGNAL_LINE _mode = LINE_MAIN, // (MT4/MT5 _mode): 0 - MODE_MAIN/MAIN_LINE, 1 - MODE_SIGNAL/SIGNAL_LINE
     int _shift = 0,
-    Indicator *_obj = NULL
+    Indicator<MACDEntry> *_obj = NULL
   ) {
 #ifdef __MQL4__
     return ::iMACD(_symbol, _tf, _ema_fast_period, _ema_slow_period, _signal_period, _applied_price, _mode, _shift);
