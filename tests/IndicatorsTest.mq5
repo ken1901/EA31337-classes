@@ -86,6 +86,8 @@ int OnInit() {
   _result &= PrintIndicators(__FUNCTION__);
   assertTrueOrFail(GetLastError() == ERR_NO_ERROR, StringFormat("Error: %d", GetLastError()));
   bar_processed = 0;
+  OnTick();OnTick();
+  ExpertRemove();
   return (_result && _LastError == ERR_NO_ERROR ? INIT_SUCCEEDED : INIT_FAILED);
 }
 
@@ -93,7 +95,7 @@ int OnInit() {
  * Implements Tick event handler.
  */
 void OnTick() {
-  if (chart.IsNewBar()) {
+  //if (chart.IsNewBar()) {
     bar_processed++;
     if (indis.Size() == 0) {
       return;
@@ -106,8 +108,11 @@ void OnTick() {
         tested.Set(iter.Key(), true); // Mark as tested.
         indis.Unset(iter.Key()); // Remove from the collection.
       }
+      else {
+        _entry = _indi.GetEntry();
+      }
     }
-  }
+  //}
 }
 
 /**
@@ -121,6 +126,7 @@ void OnDeinit(const int reason) {
   }
   PrintFormat("%s: Indicators not tested: %d", __FUNCTION__, indis.Size());
   assertTrueOrExit(indis.Size() == 0, "Not all indicators has been tested!");
+  int _size = indis.Size();
   delete chart;
 }
 
