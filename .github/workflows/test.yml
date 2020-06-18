@@ -8,11 +8,10 @@ on:
       - '**/*.mq?'
       - '.github/workflows/test.yml'
   push:
-    paths:
-      - '**/*.h'
-      - '**/*.mq?'
-      - '.github/workflows/test.yml'
-
+#    paths:
+#      - '**/*.h'
+#      - '**/*.mq?'
+#      - '.github/workflows/test.yml'
 jobs:
   Compile:
     runs-on: windows-latest
