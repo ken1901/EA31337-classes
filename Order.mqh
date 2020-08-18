@@ -873,8 +873,6 @@ class Order : public SymbolInfo {
    * @return
    * Returns the net profit value (without swaps or commissions) for the selected order.
    * For open orders, it is the current unrealized profit. For closed orders, it is the fixed profit.
-   *
-   * @see https://docs.mql4.com/trading/orderprofit
    */
   static double OrderProfit(unsigned long _ticket = 0) {
 #ifdef __MQL4__
