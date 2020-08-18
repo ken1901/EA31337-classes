@@ -32,6 +32,13 @@
 #ifndef DATETIME_MQH
 #define DATETIME_MQH
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compatibility).
+string TimeToStr(datetime _value, int _mode) {
+  return DateTime::TimeToStr(_value, _mode);
+}
+#endif
+
 // Enums.
 
 // Define datetime conditions.

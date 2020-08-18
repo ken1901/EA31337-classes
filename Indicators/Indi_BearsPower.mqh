@@ -23,15 +23,26 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iBearsPower(string _symbol, int _tf, int _period, int _ap, int _shift) {
+  return Indi_BearsPower::iBearsPower(_symbol, (ENUM_TIMEFRAMES)_tf, _period, (ENUM_APPLIED_PRICE)_ap, _shift);
+}
+#endif
+
 // Structs.
 struct BearsPowerParams : IndicatorParams {
   unsigned int period;
   ENUM_APPLIED_PRICE applied_price;  // (MT5): not used
-  // Struct constructor.
+  // Struct constructors.
   void BearsPowerParams(unsigned int _period, ENUM_APPLIED_PRICE _ap) : period(_period), applied_price(_ap) {
     itype = INDI_BEARS;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void BearsPowerParams(BearsPowerParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -68,6 +79,7 @@ class Indi_BearsPower : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iBearsPower(_symbol, _tf, _period)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

@@ -23,15 +23,26 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iMFI(string _symbol, int _tf, int _period, int _shift) {
+  return Indi_MFI::iMFI(_symbol, (ENUM_TIMEFRAMES)_tf, _period, _shift);
+}
+#endif
+
 // Structs.
 struct MFIParams : IndicatorParams {
   unsigned int ma_period;
   ENUM_APPLIED_VOLUME applied_volume;  // Ignored in MT4.
-  // Struct constructor.
+  // Struct constructors.
   void MFIParams(unsigned int _ma_period, ENUM_APPLIED_VOLUME _av = NULL) : ma_period(_ma_period), applied_volume(_av) {
     itype = INDI_MFI;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void MFIParams(MFIParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -74,6 +85,7 @@ class Indi_MFI : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iMFI(_symbol, _tf, _period, VOLUME_TICK)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

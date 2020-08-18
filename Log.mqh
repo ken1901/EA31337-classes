@@ -22,6 +22,7 @@
 // Includes.
 #include "Array.mqh"
 #include "Collection.mqh"
+#include "DateTime.mqh"
 #include "Object.mqh"
 #include "Terminal.mqh"
 
@@ -53,7 +54,7 @@ class Log : public Object {
     ENUM_LOG_LEVEL log_level;
     string msg;
   };
-  Collection logs;
+  Collection<Log> logs;
   string filename;
   log_entry data[];
   int last_entry;
@@ -73,11 +74,6 @@ class Log : public Object {
   ~Log() { Flush(); }
 
   /* Getters */
-
-  /**
-   * Link this instance with another log instance.
-   */
-  Collection *GetLinkedLogs() { return GetPointer(logs); }
 
   /**
    * Get last message.
@@ -224,19 +220,20 @@ class Log : public Object {
   /**
    * Flushes all log entries by printing them to the output.
    */
+  template<>
   void Flush(int _freq = 0, bool _dt = true) {
     if (_freq > 0 && last_flush + _freq >= TimeCurrent()) {
       // Avoids flushing logs too often.
       return;
     }
-    int i, lid;
-    Log *_log;
+    int lid, i;
+
     for (i = 0; i < last_entry; i++) {
       Print((_dt ? DateTime::TimeToStr(data[i].timestamp) + ": " : ""), data[i].msg);
     }
     // Flush logs from another linked instances.
     for (lid = 0; lid < logs.GetSize(); lid++) {
-      _log = ((Log *)logs.GetByIndex(lid));
+      Log* _log = logs.GetByIndex(lid);
       if (Object::IsValid(_log)) {
         _log.Flush();
       }
@@ -257,14 +254,15 @@ class Log : public Object {
   string virtual ToString() {
     string result;
 
-    int i, lid;
-    Log *_log;
+    int lid, i;
     for (i = 0; i <= last_entry; i++) {
       result += DateTime::TimeToStr(data[i].timestamp) + ": " + data[i].msg + "\n";
     }
+
+    Log* _log;
     // Flush logs from another linked instances.
     for (lid = 0; lid < logs.GetSize(); lid++) {
-      _log = ((Log *)logs.GetByIndex(lid));
+      _log = logs.GetByIndex(lid);
       if (Object::IsValid(_log)) {
         result += _log.ToString();
       }

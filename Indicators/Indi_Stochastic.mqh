@@ -23,20 +23,32 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iStochastic(string _symbol, int _tf, int _kperiod, int _dperiod, int _slowing, int _ma_method, int _pf,
+                   int _mode, int _shift) {
+  return Indi_Stochastic::iStochastic(_symbol, (ENUM_TIMEFRAMES)_tf, _kperiod, _dperiod, _slowing,
+                                      (ENUM_MA_METHOD)_ma_method, (ENUM_STO_PRICE)_pf, _mode, _shift);
+}
+#endif
+
 // Structs.
 struct StochParams : IndicatorParams {
-  unsigned int kperiod;
-  unsigned int dperiod;
-  unsigned int slowing;
+  int kperiod;
+  int dperiod;
+  int slowing;
   ENUM_MA_METHOD ma_method;
   ENUM_STO_PRICE price_field;
-  // Struct constructor.
-  void StochParams(unsigned int _kperiod, unsigned int _dperiod, unsigned int _slowing, ENUM_MA_METHOD _ma_method,
-                   ENUM_STO_PRICE _pf)
+  // Struct constructors.
+  void StochParams(int _kperiod, int _dperiod, int _slowing, ENUM_MA_METHOD _ma_method, ENUM_STO_PRICE _pf)
       : kperiod(_kperiod), dperiod(_dperiod), slowing(_slowing), ma_method(_ma_method), price_field(_pf) {
     itype = INDI_STOCHASTIC;
     max_modes = FINAL_SIGNAL_LINE_ENTRY;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void StochParams(StochParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -79,6 +91,7 @@ class Indi_Stochastic : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iStochastic(_symbol, _tf, _kperiod, _dperiod, _slowing, _ma_method, _price_field)) ==
           INVALID_HANDLE) {
@@ -150,17 +163,17 @@ class Indi_Stochastic : public Indicator {
   /**
    * Get period of the %K line.
    */
-  unsigned int GetKPeriod() { return params.kperiod; }
+  int GetKPeriod() { return params.kperiod; }
 
   /**
    * Get period of the %D line.
    */
-  unsigned int GetDPeriod() { return params.dperiod; }
+  int GetDPeriod() { return params.dperiod; }
 
   /**
    * Get slowing value.
    */
-  unsigned int GetSlowing() { return params.slowing; }
+  int GetSlowing() { return params.slowing; }
 
   /**
    * Set MA method.
@@ -177,7 +190,7 @@ class Indi_Stochastic : public Indicator {
   /**
    * Set period of the %K line.
    */
-  void SetKPeriod(unsigned int _kperiod) {
+  void SetKPeriod(int _kperiod) {
     istate.is_changed = true;
     params.kperiod = _kperiod;
   }
@@ -185,7 +198,7 @@ class Indi_Stochastic : public Indicator {
   /**
    * Set period of the %D line.
    */
-  void SetDPeriod(unsigned int _dperiod) {
+  void SetDPeriod(int _dperiod) {
     istate.is_changed = true;
     params.dperiod = _dperiod;
   }
@@ -193,7 +206,7 @@ class Indi_Stochastic : public Indicator {
   /**
    * Set slowing value.
    */
-  void SetSlowing(unsigned int _slowing) {
+  void SetSlowing(int _slowing) {
     istate.is_changed = true;
     params.slowing = _slowing;
   }

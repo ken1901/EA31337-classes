@@ -35,6 +35,7 @@ class Chart;
 #include "DrawIndicator.mqh"
 #include "Math.mqh"
 
+// Defines macros.
 #define COMMA ,
 #define DUMMY
 #define ICUSTOM_DEF(PARAMS)                                                    \
@@ -57,8 +58,25 @@ class Chart;
   }                                                                            \
   return _res[0];
 
-// Define macros.
+// Defines bitwise method macro.
 #define METHOD(method, no) ((method & (1 << no)) == 1 << no)
+
+#ifndef __MQL4__
+// Defines macros (for MQL4 backward compatibility).
+#define IndicatorDigits(_digits) IndicatorSetInteger(INDICATOR_DIGITS, _digits)
+#define IndicatorShortName(name) IndicatorSetString(INDICATOR_SHORTNAME, name)
+#endif
+
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compatibility).
+bool IndicatorBuffers(int _count) { return Indicator::SetIndicatorBuffers(_count); }
+int IndicatorCounted(int _value = 0) {
+  static int prev_calculated = 0;
+  // https://docs.mql4.com/customind/indicatorcounted
+  prev_calculated = _value > 0 ? _value : prev_calculated;
+  return prev_calculated;
+}
+#endif
 
 // Globals enums.
 // Defines indicator conditions.
@@ -202,7 +220,7 @@ enum ENUM_SIGNAL_LINE {
 
 #ifdef __MQL4__
 // The volume type is used in calculations.
-// For MT4, we define it for backward compability.
+// For MT4, we define it for backward compatibility.
 // @docs: https://www.mql5.com/en/docs/constants/indicatorconstants/prices#enum_applied_price_enum
 enum ENUM_APPLIED_VOLUME { VOLUME_TICK = 0, VOLUME_REAL = 1 };
 #endif
@@ -531,6 +549,7 @@ struct IndicatorDataEntry {
 };
 struct IndicatorParams : ChartParams {
   string name;                     // Name of the indicator.
+  int shift;                       // Shift (relative to the current bar, 0 - default).
   unsigned int max_modes;          // Max supported indicator modes (values per entry).
   unsigned int max_buffers;        // Max buffers to store.
   ENUM_INDICATOR_TYPE itype;       // Type of indicator.
@@ -549,6 +568,7 @@ struct IndicatorParams : ChartParams {
   IndicatorParams(ENUM_INDICATOR_TYPE _itype = INDI_NONE, ENUM_IDATA_VALUE_TYPE _idvtype = TDBL1,
                   ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN, string _name = "")
       : name(_name),
+        shift(0),
         max_modes(1),
         max_buffers(10),
         idstype(_idstype),
@@ -563,6 +583,7 @@ struct IndicatorParams : ChartParams {
   };
   IndicatorParams(string _name, ENUM_IDATA_VALUE_TYPE _idvtype = TDBL1, ENUM_IDATA_SOURCE_TYPE _idstype = IDATA_BUILTIN)
       : name(_name),
+        shift(0),
         max_modes(1),
         max_buffers(10),
         idstype(_idstype),
@@ -577,7 +598,9 @@ struct IndicatorParams : ChartParams {
   /* Getters */
   string GetCustomIndicatorName() { return custom_indi_name; }
   color GetIndicatorColor() { return indi_color; }
+  int GetIndicatorMode() { return indi_mode; }
   int GetMaxModes() { return (int)max_modes; }
+  int GetShift() { return shift; }
   ENUM_IDATA_SOURCE_TYPE GetIDataSourceType() { return idstype; }
   ENUM_IDATA_VALUE_TYPE GetIDataValueType() { return idvtype; }
   /* Setters */
@@ -626,10 +649,10 @@ struct IndicatorParams : ChartParams {
     indi_data_ownership = take_ownership;
   }
   void SetIndicatorMode(int mode) { indi_mode = mode; }
-  int GetIndicatorMode() { return indi_mode; }
   void SetIndicatorType(ENUM_INDICATOR_TYPE _itype) { itype = _itype; }
   void SetMaxModes(int _max_modes) { max_modes = _max_modes; }
   void SetName(string _name) { name = _name; };
+  void SetShift(int _shift) { shift = _shift; }
   void SetSize(int _size) { max_buffers = _size; };
 };
 struct IndicatorState {
@@ -776,6 +799,8 @@ class Indicator : public Chart {
     }
   }
 
+  /* Defines MQL backward compatible methods */
+
   double iCustom(int& _handle, string _symbol, ENUM_TIMEFRAMES _tf, string _name, int _mode, int _shift) {
 #ifdef __MQL4__
     return ::iCustom(_symbol, _tf, _name, _mode, _shift);
@@ -830,6 +855,22 @@ class Indicator : public Chart {
 #else  // __MQL5__
     ICUSTOM_DEF(COMMA _a COMMA _b COMMA _c COMMA _d COMMA _e);
 #endif
+  }
+
+  /**
+   * Allocates memory for buffers used for custom indicator calculations.
+   */
+  static int IndicatorBuffers(int _count = 0) {
+    static int indi_buffers = 1;
+    indi_buffers = _count > 0 ? _count : indi_buffers;
+    return indi_buffers;
+  }
+  static int GetIndicatorBuffers() {
+    return Indicator::IndicatorBuffers();
+  }
+  static bool SetIndicatorBuffers(int _count) {
+    Indicator::IndicatorBuffers(_count);
+    return GetIndicatorBuffers() > 0 && GetIndicatorBuffers() <= 512;
   }
 
   /* Operator overloading methods */
@@ -1054,14 +1095,14 @@ class Indicator : public Chart {
   /* Getters */
 
   /**
-   * Get indicator's params.
+   * Gets indicator's params.
    */
   IndicatorParams GetParams() { return iparams; }
 
   /**
    * Get indicator type.
    */
-  ENUM_INDICATOR_TYPE GetIndicatorType() { return iparams.itype; }
+  ENUM_INDICATOR_TYPE GetType() { return iparams.itype; }
 
   /**
    * Get pointer to data of indicator.
@@ -1165,7 +1206,7 @@ class Indicator : public Chart {
         // Indicator entry value is lesser than median.
         return false;
       default:
-        logger.Error(StringFormat("Invalid indicator condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
+        Logger().Error(StringFormat("Invalid indicator condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
         return false;
     }
   }
@@ -1387,11 +1428,18 @@ class Indicator : public Chart {
   /**
    * Returns the indicator's entry value.
    */
-  virtual MqlParam GetEntryValue(int _shift = 0, int _mode = 0) = NULL;
+  virtual MqlParam GetEntryValue(int _shift = 0, int _mode = 0) {
+    MqlParam _param = {TYPE_DOUBLE};
+    _param.double_value = GetEntry(_shift).value.GetValueDbl(iparams.idvtype, _mode);
+    return _param;
+  }
 
   /**
    * Returns the indicator's value in plain format.
    */
-  virtual string ToString(int _shift = 0) = NULL;
+  virtual string ToString(int _shift = 0) {
+    return GetEntry(_shift).value.ToString(iparams.idvtype);
+  }
+
 };
 #endif

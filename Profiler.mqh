@@ -24,7 +24,7 @@
 #include "Collection.mqh"
 #include "Timer.mqh"
 
-// Define macros.
+// Defines macros.
 #define PROFILER_SET_MIN(ms)     Profiler::min_time = ms;
 #define PROFILER_START \
   static Timer *_timer = NULL; \
@@ -44,7 +44,7 @@ class Profiler {
   public:
 
     // Variables.
-    static Collection *timers;
+    static Collection<Timer> *timers;
     static ulong min_time;
 
     /* Class methods */
@@ -58,5 +58,5 @@ class Profiler {
 };
 
 // Initialize static global variables.
-Collection *Profiler::timers = new Collection(MQLInfoString(MQL_PROGRAM_NAME));
+Collection<Timer> *Profiler::timers = new Collection<Timer>(MQLInfoString(MQL_PROGRAM_NAME));
 ulong Profiler::min_time = 1;

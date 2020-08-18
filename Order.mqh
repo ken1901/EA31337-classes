@@ -124,7 +124,7 @@ enum ENUM_ORDER_PROPERTY_INTEGER {
 };
 #endif
 
-/* Defines for backward compability. */
+/* Defines for backward compatibility. */
 
 // Index in the order pool.
 #ifndef SELECT_BY_POS
@@ -150,14 +150,14 @@ enum ENUM_ORDER_PROPERTY_INTEGER {
 
 #ifndef ORDER_EXTERNAL_ID
 // Order identifier in an external trading system (on the Exchange).
-// Note: Required for backward compability in MQL4.
+// Note: Required for backward compatibility in MQL4.
 // @see: https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties#enum_order_property_string
 #define ORDER_EXTERNAL_ID 20
 #endif
 
 #ifndef ORDER_REASON
 // The reason or source for placing an order.
-// Note: Required for backward compability in MQL4.
+// Note: Required for backward compatibility in MQL4.
 // @see: https://www.mql5.com/en/docs/constants/tradingconstants/orderproperties
 #define ORDER_REASON 23
 #endif
@@ -214,6 +214,7 @@ struct OrderData {
   double swap;                           // Order cumulative swap.
   datetime time_open;                    // Open time.
   datetime time_close;                   // Close time.
+  double total_fees;                     // Total fees.
   datetime expiration;                   // Order expiration time (for the orders of ORDER_TIME_SPECIFIED type).
   double sl;                             // Current Stop loss level of the order.
   double tp;                             // Current Take Profit level of the order.
@@ -227,7 +228,7 @@ struct OrderData {
   string comment;                        // Comment.
   string ext_id;                         // External trading system identifier.
   string symbol;                         // Symbol of the order.
-  Log *logger;                           // Pointer to logger.
+  Ref<Log> logger;                       // Reference to logger.
   OrderData()
       : ticket(0),
         magic(0),
@@ -238,6 +239,7 @@ struct OrderData {
         price_close(0),
         price_current(0),
         price_stoplimit(0),
+        swap(0),
         time_close(0),
         time_open(0),
         expiration(0),
@@ -355,6 +357,7 @@ class Order : public SymbolInfo {
   /**
    * Class constructors.
    */
+  Order() {}
   Order(long _ticket_no) {
     odata.SetTicket(_ticket_no);
     Update();
@@ -384,25 +387,20 @@ class Order : public SymbolInfo {
   /**
    * Class copy constructors.
    */
-  Order(const Order &_order, bool _send = true) {
+  Order(const Order &_order) {
     oparams = _order.oparams;
     odata = _order.odata;
     orequest = _order.orequest;
     oresult_check = _order.oresult_check;
     oresult = _order.oresult;
-    if (_send) {
-      if (!oparams.dummy) {
-        OrderSend();
-      } else {
-        OrderSendDummy();
-      }
-    }
   }
 
   /**
    * Class deconstructor.
    */
   ~Order() {}
+
+  Log* Logger() { return logger.Ptr(); }
 
   /* Getters */
 
@@ -728,6 +726,37 @@ class Order : public SymbolInfo {
   }
 
   /**
+   * Returns total fees of the currently selected order.
+   *
+   */
+  static double OrderTotalFees(unsigned long _ticket = 0) {
+#ifdef __MQL4__
+    return Order::OrderCommission() - Order::OrderSwap();
+#else  // __MQL5__
+    double _result = 0;
+    _ticket = _ticket > 0 ? _ticket : Order::OrderTicket();
+    if (HistorySelectByPosition(_ticket)) {
+      for (int i = HistoryDealsTotal() - 1; i >= 0; i--) {
+        // https://www.mql5.com/en/docs/trading/historydealgetticket
+        const unsigned long _deal_ticket = HistoryDealGetTicket(i);
+        if (_deal_ticket > 0) {
+          _result += HistoryDealGetDouble(_deal_ticket, DEAL_COMMISSION);
+          _result += HistoryDealGetDouble(_deal_ticket, DEAL_FEE);
+          _result += HistoryDealGetDouble(_deal_ticket, DEAL_SWAP);
+        }
+      }
+    }
+    return _result;
+#endif
+  }
+  double GetTotalFees() {
+    if (!IsClosed()) {
+      odata.total_fees = Order::OrderTotalFees(odata.ticket);
+    }
+    return odata.total_fees;
+  }
+
+  /**
    * Deletes previously opened pending order.
    *
    * @see: https://docs.mql4.com/trading/orderdelete
@@ -942,7 +971,10 @@ class Order : public SymbolInfo {
     _request.expiration = _expiration;
     _request.type = (ENUM_ORDER_TYPE)_cmd;
     _request.type_filling = _request.type_filling ? _request.type_filling : GetOrderFilling(_symbol);
-    return Order::OrderSend(_request, _result) > 0;
+    if (!Order::OrderSend(_request, _result)) {
+      return -1;
+    }
+    return (long)_result.order;
 #endif
   }
   static bool OrderSend(const MqlTradeRequest &_request, MqlTradeResult &_result, MqlTradeCheckResult &_check_result,
@@ -1516,6 +1548,9 @@ class Order : public SymbolInfo {
       return Order::ExecuteAction(ORDER_ACTION_CLOSE, _args);
     }
 
+    // IsOpen() could end up with "Position not found" error.
+    ResetLastError();
+
     // Update integer values.
     odata.SetTicket(Order::GetTicket());
     Update(ORDER_TIME_EXPIRATION);
@@ -1704,13 +1739,15 @@ class Order : public SymbolInfo {
   /* Custom order methods */
 
   /**
-   * Returns profit of the currently selected order.
+   * Returns gross profit of the currently selected order.
    *
    * @return
-   * Returns the gross profit value (with swaps or commissions) for the selected order,
-   * in the base currency.
+   * Returns the gross profit value (including swaps, commissions and fees/taxes)
+   * for the selected order, in the base currency.
    */
-  static double GetOrderTotalProfit() { return Order::OrderProfit() - Order::OrderCommission() - Order::OrderSwap(); }
+  static double GetOrderTotalProfit() {
+    return Order::OrderProfit() - Order::OrderTotalFees();
+  }
   double GetTotalProfit() {
     if (odata.total_profit == 0 || !IsClosed()) {
       odata.total_profit = Order::GetOrderTotalProfit();
@@ -2397,7 +2434,7 @@ class Order : public SymbolInfo {
         }
       }
       default:
-        logger.Error(StringFormat("Invalid order condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
+        Logger().Error(StringFormat("Invalid order condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
     }
     SetUserError(ERR_INVALID_PARAMETER);
     return false;

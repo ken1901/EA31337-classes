@@ -32,19 +32,34 @@
 #include "Indi_MA.mqh"
 #include "Indi_PriceFeeder.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iStdDev(string _symbol, int _tf, int _ma_period, int _ma_shift, int _ma_method, int _ap, int _shift) {
+  return Indi_StdDev::iStdDev(_symbol, (ENUM_TIMEFRAMES)_tf, _ma_period, _ma_shift, (ENUM_MA_METHOD)_ma_method,
+                              (ENUM_APPLIED_PRICE)_ap, _shift);
+}
+double iStdDevOnArray(double &_arr[], int _total, int _ma_period, int _ma_shift, int _ma_method, int _shift) {
+  return Indi_StdDev::iStdDevOnArray(_arr, _total, _ma_period, _ma_shift, (ENUM_MA_METHOD)_ma_method, _shift);
+}
+#endif
+
 // Structs.
 struct StdDevParams : IndicatorParams {
-  unsigned int ma_period;
-  unsigned int ma_shift;
+  int ma_period;
+  int ma_shift;
   ENUM_MA_METHOD ma_method;
   ENUM_APPLIED_PRICE applied_price;
-  // Struct constructor.
-  void StdDevParams(unsigned int _ma_period, unsigned int _ma_shift, ENUM_MA_METHOD _ma_method = MODE_SMA,
+  // Struct constructors.
+  void StdDevParams(int _ma_period, int _ma_shift, ENUM_MA_METHOD _ma_method = MODE_SMA,
                     ENUM_APPLIED_PRICE _ap = PRICE_OPEN)
       : ma_period(_ma_period), ma_shift(_ma_shift), ma_method(_ma_method), applied_price(_ap) {
     itype = INDI_STDDEV;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void StdDevParams(StdDevParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -75,14 +90,14 @@ class Indi_StdDev : public Indicator {
    * - https://docs.mql4.com/indicators/istddev
    * - https://www.mql5.com/en/docs/indicators/istddev
    */
-  static double iStdDev(string _symbol, ENUM_TIMEFRAMES _tf, unsigned int _ma_period, unsigned int _ma_shift,
-                        ENUM_MA_METHOD _ma_method, ENUM_APPLIED_PRICE _applied_price, int _shift = 0,
-                        Indicator *_obj = NULL) {
+  static double iStdDev(string _symbol, ENUM_TIMEFRAMES _tf, int _ma_period, int _ma_shift, ENUM_MA_METHOD _ma_method,
+                        ENUM_APPLIED_PRICE _applied_price, int _shift = 0, Indicator *_obj = NULL) {
 #ifdef __MQL4__
     return ::iStdDev(_symbol, _tf, _ma_period, _ma_shift, _ma_method, _applied_price, _shift);
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iStdDev(_symbol, _tf, _ma_period, _ma_shift, _ma_method, _applied_price)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);
@@ -108,8 +123,8 @@ class Indi_StdDev : public Indicator {
   /**
    * Note that this method operates on current price (set by _applied_price).
    */
-  static double iStdDevOnIndicator(Indicator *_indi, string _symbol, ENUM_TIMEFRAMES _tf, unsigned int _ma_period,
-                                   unsigned int _ma_shift, ENUM_APPLIED_PRICE _applied_price, int _shift = 0, Indicator *_obj = NULL) {
+  static double iStdDevOnIndicator(Indicator *_indi, string _symbol, ENUM_TIMEFRAMES _tf, int _ma_period, int _ma_shift,
+                                   ENUM_APPLIED_PRICE _applied_price, int _shift = 0, Indicator *_obj = NULL) {
     double _indi_value_buffer[];
     double _std_dev;
     int i;
@@ -119,7 +134,8 @@ class Indi_StdDev : public Indicator {
     for (i = _shift; i < (int)_shift + (int)_ma_period; i++) {
       // Getting current indicator value. Input data may be shifted on
       // the graph, so we need to take that shift into consideration.
-      _indi_value_buffer[i - _shift] = _indi.GetValueDouble(i + _ma_shift, _obj != NULL ? _obj.GetParams().indi_mode : NULL);
+      _indi_value_buffer[i - _shift] =
+          _indi.GetValueDouble(i + _ma_shift, _obj != NULL ? _obj.GetParams().indi_mode : NULL);
     }
 
     double _ma = Indi_MA::SimpleMA(_shift, _ma_period, _indi_value_buffer);
@@ -139,6 +155,46 @@ class Indi_StdDev : public Indicator {
     return MathSqrt(std_dev / period);
   }
 
+  static double iStdDevOnArray(double &array[], int total, int ma_period, int ma_shift, int ma_method, int shift) {
+#ifdef __MQL4__
+    return ::iStdDevOnArray(array, total, ma_period, ma_shift, ma_method, shift);
+#endif
+    bool was_series = ArrayGetAsSeries(array);
+    if (!was_series) {
+      ArraySetAsSeries(array, true);
+    }
+    int num = shift + ma_shift;
+    bool flag = total == 0;
+    if (flag) {
+      total = ArraySize(array);
+    }
+    bool flag2 = num < 0 || num >= total;
+    double result;
+    if (flag2) {
+      result = -1.0;
+    } else {
+      bool flag3 = ma_method != 1 && num + ma_period > total;
+      if (flag3) {
+        result = -1.0;
+      } else {
+        double num2 = 0.0;
+        double num3 = Indi_MA::iMAOnArray(array, total, ma_period, 0, ma_method, num);
+        for (int i = 0; i < ma_period; i++) {
+          double num4 = array[num + i];  // true?
+          num2 += (num4 - num3) * (num4 - num3);
+        }
+        double num5 = MathSqrt(num2 / (double)ma_period);
+        result = num5;
+      }
+    }
+
+    if (!was_series) {
+      ArraySetAsSeries(array, false);
+    }
+
+    return result;
+  }
+
   /**
    * Standard Deviation On Array is just a normal standard deviation over MA with a selected method.
    */
@@ -150,7 +206,7 @@ class Indi_StdDev : public Indicator {
     ma_params.SetIndicatorMode(0);  // Using first and only mode from price feeder.
     Indi_MA indi_ma(ma_params);
 
-    return iStdDevOnIndicator(&indi_ma, NULL, NULL, period, 0, PRICE_OPEN, /*unused*/0);
+    return iStdDevOnIndicator(&indi_ma, NULL, NULL, period, 0, PRICE_OPEN, /*unused*/ 0);
   }
 
   /**
@@ -187,7 +243,8 @@ class Indi_StdDev : public Indicator {
     } else {
       _entry.timestamp = GetBarTime(_shift);
       _entry.value.SetValue(params.idvtype, GetValue(_shift));
-      _entry.SetFlag(INDI_ENTRY_FLAG_IS_VALID, !_entry.value.HasValue(params.idvtype, (double)NULL) && !_entry.value.HasValue(params.idvtype, EMPTY_VALUE));
+      _entry.SetFlag(INDI_ENTRY_FLAG_IS_VALID, !_entry.value.HasValue(params.idvtype, (double)NULL) &&
+                                                   !_entry.value.HasValue(params.idvtype, EMPTY_VALUE));
 
       AddEntry(_entry, _shift);
     }
@@ -210,7 +267,7 @@ class Indi_StdDev : public Indicator {
    *
    * Averaging period for the calculation of the moving average.
    */
-  unsigned int GetMAPeriod() { return params.ma_period; }
+  int GetMAPeriod() { return params.ma_period; }
 
   /**
    * Get MA shift value.
@@ -238,7 +295,7 @@ class Indi_StdDev : public Indicator {
    *
    * Averaging period for the calculation of the moving average.
    */
-  void SetMAPeriod(unsigned int _ma_period) {
+  void SetMAPeriod(int _ma_period) {
     istate.is_changed = true;
     params.ma_period = _ma_period;
   }

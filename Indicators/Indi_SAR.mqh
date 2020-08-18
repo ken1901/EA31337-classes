@@ -23,15 +23,26 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iSAR(string _symbol, int _tf, double _step, double _max, int _shift) {
+  return Indi_SAR::iSAR(_symbol, (ENUM_TIMEFRAMES)_tf, _step, _max, _shift);
+}
+#endif
+
 // Structs.
 struct SARParams : IndicatorParams {
   double step;
   double max;
-  // Struct constructor.
+  // Struct constructors.
   void SARParams(double _step = 0.02, double _max = 0.2) : step(_step), max(_max) {
     itype = INDI_SAR;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void SARParams(SARParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -63,6 +74,7 @@ class Indi_SAR : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iSAR(_symbol, _tf, _step, _max)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

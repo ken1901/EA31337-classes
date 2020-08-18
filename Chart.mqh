@@ -40,6 +40,18 @@ class Market;
 #include "Convert.mqh"
 #include "Market.mqh"
 
+// Defines macros (for MQL4 backward compatibility).
+#define Bars4 (Chart::iBars(_Symbol, _Period))
+#define ObjectCreate4(name, type, sub_window, t1, p1) \
+        ObjectCreate(0, name, type, sub_window, t1, p1)
+
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compatibility).
+int iBarShift(string _symbol, int _tf, datetime _time, bool _exact = false) {
+  return Chart::iBarShift(_symbol, (ENUM_TIMEFRAMES) _tf, _time, _exact);
+}
+#endif
+
 // Define type of periods.
 // @see: https://docs.mql4.com/constants/chartconstants/enum_timeframes
 enum ENUM_TIMEFRAMES_INDEX {
@@ -77,9 +89,10 @@ enum ENUM_TIMEFRAMES_BITS {
   M30B = 1 << 3, //   =8: 30 minutes
   H1B  = 1 << 4, //  =16: 1 hour
   H4B  = 1 << 5, //  =32: 4 hours
-  D1B  = 1 << 6, //  =64: Daily
-  W1B  = 1 << 7, // =128: Weekly
-  MN1B = 1 << 8, // =256: Monthly
+  H8B  = 1 << 6, //  =64: 8 hours
+  D1B  = 1 << 7, // =128: Daily
+  W1B  = 1 << 8, // =256: Weekly
+  MN1B = 1 << 9, // =512: Monthly
 };
 
 // Chart conditions.
@@ -668,7 +681,7 @@ class Chart : public Market {
     /**
      * Returns the number of bars on the specified chart.
      */
-    static uint iBars(string _symbol = NULL, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    static int iBars(string _symbol = NULL, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
       #ifdef __MQL4__
       // In MQL4, for the current chart, the information about the amount of bars is in the Bars predefined variable.
       return ::iBars(_symbol, _tf);
@@ -677,8 +690,8 @@ class Chart : public Market {
       return ::Bars(_symbol, _tf);
       #endif
     }
-    uint GetBars() {
-      return iBars(symbol, cparams.tf);
+    int GetBars() {
+      return Chart::iBars(symbol, cparams.tf);
     }
 
     /**
@@ -1324,7 +1337,7 @@ class Chart : public Market {
         return false;
       */
       default:
-        logger.Error(StringFormat("Invalid market condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
+        Logger().Error(StringFormat("Invalid market condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
         return false;
     }
   }

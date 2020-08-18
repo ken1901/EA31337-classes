@@ -48,13 +48,17 @@ enum ENUM_HA_MODE {
 
 // Structs.
 struct HeikenAshiParams : IndicatorParams {
-  // Struct constructor.
+  // Struct constructors.
   void HeikenAshiParams(ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
     itype = INDI_HEIKENASHI;
     max_modes = FINAL_HA_MODE_ENTRY;
     SetDataValueType(TYPE_DOUBLE);
     tf = _tf;
     tfi = Chart::TfToIndex(_tf);
+  };
+  void HeikenAshiParams(HeikenAshiParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -82,6 +86,7 @@ class Indi_HeikenAshi : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iCustom(_symbol, _tf, "Examples\\Heiken_Ashi")) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

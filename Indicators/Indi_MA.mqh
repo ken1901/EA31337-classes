@@ -27,18 +27,33 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iMA(string _symbol, int _tf, int _ma_period, int _ma_shift, int _ma_method, int _ap, int _shift) {
+  return Indi_MA::iMA(_symbol, (ENUM_TIMEFRAMES)_tf, _ma_period, _ma_shift, (ENUM_MA_METHOD)_ma_method,
+                      (ENUM_APPLIED_PRICE)_ap, _shift);
+}
+double iMAOnArray(double &_arr[], int _total, int _period, int _ma_shift, int _ma_method, int _shift) {
+  return Indi_MA::iMAOnArray(_arr, _total, _period, _ma_shift, _ma_method, _shift);
+}
+#endif
+
 // Structs.
 struct MAParams : IndicatorParams {
   unsigned int period;
-  unsigned int shift;
+  unsigned int ma_shift;
   ENUM_MA_METHOD ma_method;
   ENUM_APPLIED_PRICE applied_price;
-  // Struct constructor.
-  void MAParams(unsigned int _period, int _shift, ENUM_MA_METHOD _ma_method, ENUM_APPLIED_PRICE _ap)
-      : period(_period), shift(_shift), ma_method(_ma_method), applied_price(_ap) {
+  // Struct constructors.
+  void MAParams(unsigned int _period, int _ma_shift, ENUM_MA_METHOD _ma_method, ENUM_APPLIED_PRICE _ap)
+      : period(_period), ma_shift(_ma_shift), ma_method(_ma_method), applied_price(_ap) {
     itype = INDI_MA;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void MAParams(MAParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -77,6 +92,7 @@ class Indi_MA : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iMA(_symbol, _tf, _ma_period, _ma_shift, _ma_method, _applied_price)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);
@@ -126,7 +142,7 @@ class Indi_MA : public Indicator {
    */
   static double iMAOnArray(double &array[], int total, int period, int ma_shift, int ma_method, int shift) {
 #ifdef __MQL4__
-    return iMAOnArray(array, total, period, ma_shift, ma_method, shift);
+    return ::iMAOnArray(array, total, period, ma_shift, ma_method, shift);
 #else
     double buf[], arr[];
     int pos, i;
@@ -230,7 +246,7 @@ class Indi_MA : public Indicator {
     switch (params.idstype) {
       case IDATA_BUILTIN:
         istate.handle = istate.is_changed ? INVALID_HANDLE : istate.handle;
-        _value = Indi_MA::iMA(GetSymbol(), GetTf(), GetPeriod(), GetShift(), GetMAMethod(), GetAppliedPrice(), _shift,
+        _value = Indi_MA::iMA(GetSymbol(), GetTf(), GetPeriod(), GetMAShift(), GetMAMethod(), GetAppliedPrice(), _shift,
                               GetPointer(this));
         break;
       case IDATA_ICUSTOM:
@@ -241,8 +257,8 @@ class Indi_MA : public Indicator {
         break;
       case IDATA_INDICATOR:
         // Calculating MA value from specified indicator.
-        _value = Indi_MA::iMAOnIndicator(params.indi_data, GetSymbol(), GetTf(), GetPeriod(), GetShift(), GetMAMethod(),
-                                         _shift, GetPointer(this));
+        _value = Indi_MA::iMAOnIndicator(params.indi_data, GetSymbol(), GetTf(), GetPeriod(), GetMAShift(),
+                                         GetMAMethod(), _shift, GetPointer(this));
         if (iparams.is_draw) {
           draw.DrawLineTo(StringFormat("%s_%d", GetName(), params.indi_mode), GetBarTime(_shift), _value);
         }
@@ -295,7 +311,7 @@ class Indi_MA : public Indicator {
    *
    * Indicators line offset relate to the chart by timeframe.
    */
-  unsigned int GetShift() { return params.shift; }
+  unsigned int GetMAShift() { return params.ma_shift; }
 
   /**
    * Set MA method (smoothing type).
@@ -324,9 +340,9 @@ class Indi_MA : public Indicator {
   /**
    * Set MA shift value.
    */
-  void SetShift(int _shift) {
+  void SetMAShift(int _ma_shift) {
     istate.is_changed = true;
-    params.shift = _shift;
+    params.ma_shift = _ma_shift;
   }
 
   /**

@@ -23,15 +23,26 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iFractals(string _symbol, int _tf, int _mode, int _shift) {
+  return Indi_Fractals::iFractals(_symbol, (ENUM_TIMEFRAMES)_tf, (ENUM_LO_UP_LINE)_mode, _shift);
+}
+#endif
+
 // Structs.
 struct FractalsParams : IndicatorParams {
-  // Struct constructor.
+  // Struct constructors.
   void FractalsParams(ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
     itype = INDI_FRACTALS;
     max_modes = 2;
     SetDataValueType(TYPE_DOUBLE);
     tf = _tf;
     tfi = Chart::TfToIndex(_tf);
+  };
+  void FractalsParams(FractalsParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -65,6 +76,7 @@ class Indi_Fractals : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iFractals(_symbol, _tf)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

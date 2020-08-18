@@ -23,14 +23,25 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iDeMarker(string _symbol, int _tf, int _period, int _shift) {
+  return Indi_DeMarker::iDeMarker(_symbol, (ENUM_TIMEFRAMES)_tf, _period, _shift);
+}
+#endif
+
 // Structs.
 struct DeMarkerParams : IndicatorParams {
   unsigned int period;
-  // Struct constructor.
+  // Struct constructors.
   void DeMarkerParams(unsigned int _period) : period(_period) {
     itype = INDI_DEMARKER;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void DeMarkerParams(DeMarkerParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -63,6 +74,7 @@ class Indi_DeMarker : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iDeMarker(_symbol, _tf, _period)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

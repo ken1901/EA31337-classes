@@ -24,23 +24,36 @@
 #include "../DictStruct.mqh"
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iRSI(string _symbol, int _tf, int _period, int _ap, int _shift) {
+  return Indi_RSI::iRSI(_symbol, (ENUM_TIMEFRAMES)_tf, _period, (ENUM_APPLIED_PRICE)_ap, _shift);
+}
+double iRSIOnArray(double &_arr[], int _total, int _period, int _shift) {
+  return Indi_RSI::iRSIOnArray(_arr, _total, _period, _shift);
+}
+#endif
+
 // Structs.
 struct RSIParams : IndicatorParams {
   unsigned int period;
   ENUM_APPLIED_PRICE applied_price;
 
-  // Struct constructor.
+  // Struct constructors.
   void RSIParams(const RSIParams &r) {
     period = r.period;
     applied_price = r.applied_price;
     custom_indi_name = r.custom_indi_name;
   }
-
   void RSIParams(unsigned int _period, ENUM_APPLIED_PRICE _ap) : period(_period), applied_price(_ap) {
     itype = INDI_RSI;
     max_modes = 1;
     custom_indi_name = "Examples\\RSI";
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void RSIParams(RSIParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -81,6 +94,7 @@ class Indi_RSI : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iRSI(_symbol, _tf, _period, _applied_price)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

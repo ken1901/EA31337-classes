@@ -23,6 +23,11 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iBWMFI(string _symbol, int _tf, int _shift) { return Indi_BWMFI::iBWMFI(_symbol, (ENUM_TIMEFRAMES)_tf, _shift); }
+#endif
+
 // Indicator line identifiers used in BWMFI indicators.
 enum ENUM_BWMFI_BUFFER { BWMFI_BUFFER = 0, BWMFI_HISTCOLOR = 1, FINAL_BWMFI_BUFFER_ENTRY };
 // Defines four possible groupings of MFI and volume were termed by Williams.
@@ -37,13 +42,17 @@ enum ENUM_MFI_COLOR {
 
 // Structs.
 struct BWMFIParams : IndicatorParams {
-  // Struct constructor.
+  // Struct constructors.
   void BWMFIParams(ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
     itype = INDI_BWMFI;
     max_modes = FINAL_BWMFI_BUFFER_ENTRY;
     SetDataValueType(TYPE_DOUBLE);
     tf = _tf;
     tfi = Chart::TfToIndex(_tf);
+  };
+  void BWMFIPowerParams(BWMFIParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -77,6 +86,7 @@ class Indi_BWMFI : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iBWMFI(_symbol, _tf, VOLUME_TICK)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

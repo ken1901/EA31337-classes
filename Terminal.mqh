@@ -38,15 +38,19 @@ class Terminal;
 
 // Includes.
 #include "DateTime.mqh"
+#include "Refs.mqh"
 #include "Log.mqh"
 #include "Object.mqh"
 #include "String.mqh"
 
+// Defines macros (for MQL4 backward compatibility).
+#define WindowExpertName4(void) Terminal::WindowExpertName(void)
+
 #ifdef __MQL5__
-  // Provide backward compability for MQL4 in MQL5.
+  // Provide backward compatibility for MQL4 in MQL5.
   #include "MQL4.mqh"
 #else
-  // Provides forward compability for MQL5 in MQL4.
+  // Provides forward compatibility for MQL5 in MQL4.
   #include "MQL5.mqh"
 #endif
 
@@ -58,8 +62,9 @@ class Terminal;
 // - https://www.mql5.com/en/docs/common/SetUserError
 #define ERR_USER_ARRAY_IS_EMPTY   1
 #define ERR_USER_INVALID_BUFF_NUM 2
-#define ERR_USER_INVALID_HANDLE   2
-#define ERR_USER_ITEM_NOT_FOUND   3
+#define ERR_USER_INVALID_HANDLE   3
+#define ERR_USER_ITEM_NOT_FOUND   4
+#define ERR_USER_NOT_SUPPORTED    5
 
 // The resolution of display on the screen in a number of Dots in a line per Inch (DPI).
 // By knowing the value, you can set the size of graphical objects,
@@ -77,12 +82,12 @@ class Terminal;
 /**
  * Class to provide functions that return parameters of the current terminal.
  */
-class Terminal {
+class Terminal : public Object {
 
   protected:
 
     // Class variables.
-    Log *logger;
+    Ref<Log> logger;
 
   public:
 
@@ -90,18 +95,12 @@ class Terminal {
      * Class constructor.
      */
     Terminal(Log *_logger = NULL)
-      : logger(_logger != NULL ? _logger : new Log)
-      {
-        if (CheckPointer(logger) == POINTER_INVALID) {
-          logger = new Log;
-        }
-      }
+      : logger(_logger != NULL ? _logger : new Log) {}
 
     /**
      * Class deconstructor.
      */
     ~Terminal() {
-      Object::Delete(logger);
     }
 
     /* Client Terminal property getters */
@@ -116,7 +115,7 @@ class Terminal {
     /**
      * Name of the program executed.
      */
-    string WindowExpertName(void) {
+    static string WindowExpertName(void) {
       return(::MQLInfoString(::MQL_PROGRAM_NAME));
     }
 
@@ -650,7 +649,7 @@ class Terminal {
     void CheckLastError() {
       if (GetLastError() > 0) {
         int _err = GetLastError();
-        logger.Error(GetErrorText(_err), StringFormat("%d", _err));
+        Logger().Error(GetErrorText(_err), StringFormat("%d", _err));
       }
       ResetLastError();
     }
@@ -827,7 +826,7 @@ class Terminal {
      * Returns Log handler.
      */
     Log *Logger() {
-     return logger;
+     return logger.Ptr();
     }
 
 };

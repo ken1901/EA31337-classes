@@ -23,6 +23,16 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iAlligator(string _symbol, int _tf, int _jp, int _js, int _tp, int _ts, int _lp, int _ls, int _ma_method,
+                  int _ap, int _mode, int _shift) {
+  return Indi_Alligator::iAlligator(_symbol, (ENUM_TIMEFRAMES)_tf, _jp, _js, _tp, _ts, _lp, _ls,
+                                    (ENUM_MA_METHOD)_ma_method, (ENUM_APPLIED_PRICE)_ap, (ENUM_ALLIGATOR_LINE)_mode,
+                                    _shift);
+}
+#endif
+
 #ifndef __MQLBUILD__
 // Defines.
 // Indicator constants.
@@ -51,17 +61,16 @@ enum ENUM_ALLIGATOR_LINE {
 
 // Structs.
 struct AlligatorParams : IndicatorParams {
-  unsigned int jaw_period;           // Jaw line averaging period.
-  unsigned int jaw_shift;            // Jaw line shift.
-  unsigned int teeth_period;         // Teeth line averaging period.
-  unsigned int teeth_shift;          // Teeth line shift.
-  unsigned int lips_period;          // Lips line averaging period.
-  unsigned int lips_shift;           // Lips line shift.
+  int jaw_period;                    // Jaw line averaging period.
+  int jaw_shift;                     // Jaw line shift.
+  int teeth_period;                  // Teeth line averaging period.
+  int teeth_shift;                   // Teeth line shift.
+  int lips_period;                   // Lips line averaging period.
+  int lips_shift;                    // Lips line shift.
   ENUM_MA_METHOD ma_method;          // Averaging method.
   ENUM_APPLIED_PRICE applied_price;  // Applied price.
-  // Struct constructor.
-  void AlligatorParams(unsigned int _jp, unsigned int _js, unsigned int _tp, unsigned int _ts, unsigned int _lp,
-                       unsigned int _ls, ENUM_MA_METHOD _mm, ENUM_APPLIED_PRICE _ap)
+  // Struct constructors.
+  void AlligatorParams(int _jp, int _js, int _tp, int _ts, int _lp, int _ls, ENUM_MA_METHOD _mm, ENUM_APPLIED_PRICE _ap)
       : jaw_period(_jp),
         jaw_shift(_js),
         teeth_period(_tp),
@@ -73,6 +82,10 @@ struct AlligatorParams : IndicatorParams {
     itype = INDI_ALLIGATOR;
     max_modes = 3;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void AlligatorParams(AlligatorParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -117,16 +130,17 @@ class Indi_Alligator : public Indicator {
    * - https://docs.mql4.com/indicators/ialligator
    * - https://www.mql5.com/en/docs/indicators/ialligator
    */
-  static double iAlligator(string _symbol, ENUM_TIMEFRAMES _tf, unsigned int _jaw_period, unsigned int _jaw_shift,
-                           unsigned int _teeth_period, unsigned int _teeth_shift, unsigned int _lips_period,
-                           unsigned int _lips_shift, ENUM_MA_METHOD _ma_method, ENUM_APPLIED_PRICE _applied_price,
-                           ENUM_ALLIGATOR_LINE _mode, int _shift = 0, Indicator *_obj = NULL) {
+  static double iAlligator(string _symbol, ENUM_TIMEFRAMES _tf, int _jaw_period, int _jaw_shift, int _teeth_period,
+                           int _teeth_shift, int _lips_period, int _lips_shift, ENUM_MA_METHOD _ma_method,
+                           ENUM_APPLIED_PRICE _applied_price, ENUM_ALLIGATOR_LINE _mode, int _shift = 0,
+                           Indicator *_obj = NULL) {
 #ifdef __MQL4__
     return ::iAlligator(_symbol, _tf, _jaw_period, _jaw_shift, _teeth_period, _teeth_shift, _lips_period, _lips_shift,
                         _ma_method, _applied_price, _mode, _shift);
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iAlligator(_symbol, _tf, _jaw_period, _jaw_shift, _teeth_period, _teeth_shift, _lips_period,
                                   _lips_shift, _ma_method, _applied_price)) == INVALID_HANDLE) {
@@ -204,32 +218,32 @@ class Indi_Alligator : public Indicator {
   /**
    * Get jaw period value.
    */
-  unsigned int GetJawPeriod() { return params.jaw_period; }
+  int GetJawPeriod() { return params.jaw_period; }
 
   /**
    * Get jaw shift value.
    */
-  unsigned int GetJawShift() { return params.jaw_shift; }
+  int GetJawShift() { return params.jaw_shift; }
 
   /**
    * Get teeth period value.
    */
-  unsigned int GetTeethPeriod() { return params.teeth_period; }
+  int GetTeethPeriod() { return params.teeth_period; }
 
   /**
    * Get teeth shift value.
    */
-  unsigned int GetTeethShift() { return params.teeth_shift; }
+  int GetTeethShift() { return params.teeth_shift; }
 
   /**
    * Get lips period value.
    */
-  unsigned int GetLipsPeriod() { return params.lips_period; }
+  int GetLipsPeriod() { return params.lips_period; }
 
   /**
    * Get lips shift value.
    */
-  unsigned int GetLipsShift() { return params.lips_shift; }
+  int GetLipsShift() { return params.lips_shift; }
 
   /**
    * Get MA method.
@@ -246,7 +260,7 @@ class Indi_Alligator : public Indicator {
   /**
    * Set jaw period value.
    */
-  void SetJawPeriod(unsigned int _jaw_period) {
+  void SetJawPeriod(int _jaw_period) {
     istate.is_changed = true;
     params.jaw_period = _jaw_period;
   }
@@ -254,7 +268,7 @@ class Indi_Alligator : public Indicator {
   /**
    * Set jaw shift value.
    */
-  void SetJawShift(unsigned int _jaw_shift) {
+  void SetJawShift(int _jaw_shift) {
     istate.is_changed = true;
     params.jaw_shift = _jaw_shift;
   }
@@ -262,7 +276,7 @@ class Indi_Alligator : public Indicator {
   /**
    * Set teeth period value.
    */
-  void SetTeethPeriod(unsigned int _teeth_period) {
+  void SetTeethPeriod(int _teeth_period) {
     istate.is_changed = true;
     params.teeth_period = _teeth_period;
   }
@@ -270,7 +284,7 @@ class Indi_Alligator : public Indicator {
   /**
    * Set teeth shift value.
    */
-  void SetTeethShift(unsigned int _teeth_shift) {
+  void SetTeethShift(int _teeth_shift) {
     istate.is_changed = true;
     params.teeth_period = _teeth_shift;
   }
@@ -278,7 +292,7 @@ class Indi_Alligator : public Indicator {
   /**
    * Set lips period value.
    */
-  void SetLipsPeriod(unsigned int _lips_period) {
+  void SetLipsPeriod(int _lips_period) {
     istate.is_changed = true;
     params.lips_period = _lips_period;
   }
@@ -286,7 +300,7 @@ class Indi_Alligator : public Indicator {
   /**
    * Set lips shift value.
    */
-  void SetLipsShift(unsigned int _lips_shift) {
+  void SetLipsShift(int _lips_shift) {
     istate.is_changed = true;
     params.lips_period = _lips_shift;
   }

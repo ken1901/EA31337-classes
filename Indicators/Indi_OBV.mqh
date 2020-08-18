@@ -23,11 +23,18 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iOBV(string _symbol, int _tf, int _av, int _shift) {
+  return Indi_OBV::iOBV(_symbol, (ENUM_TIMEFRAMES)_tf, (ENUM_APPLIED_VOLUME)_av, _shift);
+}
+#endif
+
 // Structs.
 struct OBVParams : IndicatorParams {
   ENUM_APPLIED_PRICE applied_price;    // MT4 only.
   ENUM_APPLIED_VOLUME applied_volume;  // MT5 only.
-  // Struct constructor.
+  // Struct constructors.
   void OBVParams() {
     itype = INDI_OBV;
     max_modes = 1;
@@ -44,6 +51,10 @@ struct OBVParams : IndicatorParams {
     itype = INDI_OBV;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void OBVParams(OBVParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -96,6 +107,7 @@ class Indi_OBV : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iOBV(_symbol, _tf, _applied)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

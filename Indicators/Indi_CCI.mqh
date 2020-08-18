@@ -26,18 +26,32 @@
 #include "Indi_Price.mqh"
 #include "Indi_PriceFeeder.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iCCI(string _symbol, int _tf, int _period, int _ap, int _shift) {
+  return Indi_CCI::iCCI(_symbol, (ENUM_TIMEFRAMES)_tf, _period, (ENUM_APPLIED_PRICE)_ap, _shift);
+}
+double iCCIOnArray(double &_arr[], int _total, int _period, int _shift) {
+  return Indi_CCI::iCCIOnArray(_arr, _total, _period, _shift);
+}
+#endif
+
 // Structs.
 struct CCIParams : IndicatorParams {
   unsigned int period;
-  int shift;
   ENUM_APPLIED_PRICE applied_price;
-  // Struct constructor.
+  // Struct constructors.
   void CCIParams(unsigned int _period, ENUM_APPLIED_PRICE _applied_price, int _shift = 0)
-      : period(_period), applied_price(_applied_price), shift(_shift) {
+      : period(_period), applied_price(_applied_price) {
     itype = INDI_CCI;
     max_modes = 1;
+    shift = _shift;
     custom_indi_name = "Examples\\CCI";
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void CCIParams(CCIParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -73,6 +87,7 @@ class Indi_CCI : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iCCI(_symbol, _tf, _period, _applied_price)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);
@@ -103,8 +118,7 @@ class Indi_CCI : public Indicator {
     ArrayResize(_indi_value_buffer, _period);
 
     for (i = _shift; i < (int)_shift + (int)_period; i++) {
-      if (!_indi.GetValueDouble4(i, o, h, c, l))
-        return 0;
+      if (!_indi.GetValueDouble4(i, o, h, c, l)) return 0;
 
       _indi_value_buffer[i - _shift] = Chart::GetAppliedPrice(_applied_price, o, h, c, l);
     }
@@ -167,7 +181,8 @@ class Indi_CCI : public Indicator {
                                 GetPointer(this));
         break;
       case IDATA_ICUSTOM:
-        _value = iCustom(istate.handle, GetSymbol(), GetTf(), params.custom_indi_name, /* [ */GetPeriod(), GetAppliedPrice()/* ] */, 0, _shift);
+        _value = iCustom(istate.handle, GetSymbol(), GetTf(), params.custom_indi_name, /* [ */ GetPeriod(),
+                         GetAppliedPrice() /* ] */, 0, _shift);
         break;
       case IDATA_INDICATOR:
         // @fixit Somehow shift isn't used neither in MT4 nor MT5.

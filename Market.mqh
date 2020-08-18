@@ -33,12 +33,6 @@ class SymbolInfo;
 #include "SymbolInfo.mqh"
 
 // Structs.
-// Struct for making a snapshot of market values.
-struct MarketSnapshot {
-  datetime dt;
-  double bid, ask;
-  double vol;
-};
 // Market info.
 struct MarketData {
   double pip_value;  // Pip value.
@@ -66,7 +60,6 @@ protected:
 
   // Struct variables.
   MarketData minfo;
-  MarketSnapshot snapshots[];
 
 public:
 
@@ -188,7 +181,10 @@ public:
    * @see: https://book.mql4.com/appendix/limits
    */
   static double GetTradeDistanceInPips(string _symbol) {
-    return (double) (GetTradeDistanceInPts(_symbol) / GetPointsPerPip(_symbol));
+    unsigned int _pts_per_pip = GetPointsPerPip(_symbol);
+    return (double) (_pts_per_pip > 0
+      ? (GetTradeDistanceInPts(_symbol) / _pts_per_pip)
+      : 0);
   }
   double GetTradeDistanceInPips() {
     return GetTradeDistanceInPips(symbol);
@@ -232,7 +228,7 @@ public:
    * @see http://docs.mql4.com/series/refreshrates
    */
   static bool RefreshRates() {
-    // In MQL5 returns true for backward compability.
+    // In MQL5 returns true for backward compatibility.
     #ifdef __MQL4__
     return ::RefreshRates();
     #else
@@ -362,7 +358,7 @@ public:
           case ORDER_TYPE_SL: return fmin(_value, GetBid() - GetTradeDistanceInValue());
           // TakeProfit - Bid >= SYMBOL_TRADE_STOPS_LEVEL (minimum trade distance)
           case ORDER_TYPE_TP: return fmax(_value, GetBid() + GetTradeDistanceInValue());
-          default: logger.Error(StringFormat("Invalid mode: %s!", EnumToString(_mode), __FUNCTION__));
+          default: Logger().Error(StringFormat("Invalid mode: %s!", EnumToString(_mode), __FUNCTION__));
         }
       // Selling is done at the Bid price.
       // The TakeProfit and StopLoss levels must be at the distance
@@ -373,9 +369,9 @@ public:
           case ORDER_TYPE_SL: return fmax(_value, GetAsk() + GetTradeDistanceInValue());
           // Ask - TakeProfit >= SYMBOL_TRADE_STOPS_LEVEL (minimum trade distance)
           case ORDER_TYPE_TP: return fmin(_value, GetAsk() - GetTradeDistanceInValue());
-          default: logger.Error(StringFormat("Invalid mode: %s!", EnumToString(_mode), __FUNCTION__));
+          default: Logger().Error(StringFormat("Invalid mode: %s!", EnumToString(_mode), __FUNCTION__));
         }
-      default: logger.Error(StringFormat("Invalid order type: %s!", EnumToString(_cmd), __FUNCTION__));
+      default: Logger().Error(StringFormat("Invalid order type: %s!", EnumToString(_cmd), __FUNCTION__));
     }
     return NULL;
   }
@@ -430,24 +426,6 @@ public:
       "Pip Digits,Pip Value,Spread,Pts/pip," +
       "Trade Distance (value),Trade Distance (points),Trade Distance (pips), Volume digits," +
       "Delta,Last change (pips)";
-  }
-
-  /* Snapshots */
-
-  /**
-   * Create a market snapshot.
-   */
-  bool MakeSnapshot() {
-    int _size = ArraySize(snapshots);
-    if (ArrayResize(snapshots, _size + 1, 100)) {
-      snapshots[_size].dt  = TimeCurrent();
-      snapshots[_size].ask = GetAsk();
-      snapshots[_size].bid = GetBid();
-      snapshots[_size].vol = GetSessionVolume();
-      return true;
-    } else {
-      return false;
-    }
   }
 
   /* Other methods */
@@ -608,7 +586,7 @@ public:
       case MARKET_COND_SPREAD_GT_20:
         return GetSpreadInPts() > 20;
       default:
-        logger.Error(StringFormat("Invalid market condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
+        Logger().Error(StringFormat("Invalid market condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
         return false;
     }
   }

@@ -23,18 +23,30 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iOsMA(string _symbol, int _tf, int _ema_fp, int _ema_sp, int _signal_period, int _ap, int _shift) {
+  return Indi_OsMA::iOsMA(_symbol, (ENUM_TIMEFRAMES)_tf, _ema_fp, _ema_sp, _signal_period, (ENUM_APPLIED_PRICE)_ap,
+                          _shift);
+}
+#endif
+
 // Structs.
 struct OsMAParams : IndicatorParams {
-  unsigned int ema_fast_period;
-  unsigned int ema_slow_period;
-  unsigned int signal_period;
+  int ema_fast_period;
+  int ema_slow_period;
+  int signal_period;
   ENUM_APPLIED_PRICE applied_price;
-  // Struct constructor.
-  void OsMAParams(unsigned int _efp, unsigned int _esp, unsigned int _sp, ENUM_APPLIED_PRICE _ap)
+  // Struct constructors.
+  void OsMAParams(int _efp, int _esp, int _sp, ENUM_APPLIED_PRICE _ap)
       : ema_fast_period(_efp), ema_slow_period(_esp), signal_period(_sp), applied_price(_ap) {
     itype = INDI_OSMA;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void OsMAParams(OsMAParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -66,14 +78,14 @@ class Indi_OsMA : public Indicator {
    * - https://docs.mql4.com/indicators/iosma
    * - https://www.mql5.com/en/docs/indicators/iosma
    */
-  static double iOsMA(string _symbol, ENUM_TIMEFRAMES _tf, unsigned int _ema_fast_period, unsigned int _ema_slow_period,
-                      unsigned int _signal_period, ENUM_APPLIED_PRICE _applied_price, int _shift = 0,
-                      Indicator *_obj = NULL) {
+  static double iOsMA(string _symbol, ENUM_TIMEFRAMES _tf, int _ema_fast_period, int _ema_slow_period,
+                      int _signal_period, ENUM_APPLIED_PRICE _applied_price, int _shift = 0, Indicator *_obj = NULL) {
 #ifdef __MQL4__
     return ::iOsMA(_symbol, _tf, _ema_fast_period, _ema_slow_period, _signal_period, _applied_price, _shift);
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iOsMA(_symbol, _tf, _ema_fast_period, _ema_slow_period, _signal_period, _applied_price)) ==
           INVALID_HANDLE) {
@@ -145,21 +157,21 @@ class Indi_OsMA : public Indicator {
    *
    * Averaging period for the calculation of the moving average.
    */
-  unsigned int GetEmaFastPeriod() { return params.ema_fast_period; }
+  int GetEmaFastPeriod() { return params.ema_fast_period; }
 
   /**
    * Get slow EMA period value.
    *
    * Averaging period for the calculation of the moving average.
    */
-  unsigned int GetEmaSlowPeriod() { return params.ema_slow_period; }
+  int GetEmaSlowPeriod() { return params.ema_slow_period; }
 
   /**
    * Get signal period value.
    *
    * Averaging period for the calculation of the moving average.
    */
-  unsigned int GetSignalPeriod() { return params.signal_period; }
+  int GetSignalPeriod() { return params.signal_period; }
 
   /**
    * Get applied price value.
@@ -175,7 +187,7 @@ class Indi_OsMA : public Indicator {
    *
    * Averaging period for the calculation of the moving average.
    */
-  void SetEmaFastPeriod(unsigned int _ema_fast_period) {
+  void SetEmaFastPeriod(int _ema_fast_period) {
     istate.is_changed = true;
     params.ema_fast_period = _ema_fast_period;
   }
@@ -185,7 +197,7 @@ class Indi_OsMA : public Indicator {
    *
    * Averaging period for the calculation of the moving average.
    */
-  void SetEmaSlowPeriod(unsigned int _ema_slow_period) {
+  void SetEmaSlowPeriod(int _ema_slow_period) {
     istate.is_changed = true;
     params.ema_slow_period = _ema_slow_period;
   }
@@ -195,7 +207,7 @@ class Indi_OsMA : public Indicator {
    *
    * Averaging period for the calculation of the moving average.
    */
-  void SetSignalPeriod(unsigned int _signal_period) {
+  void SetSignalPeriod(int _signal_period) {
     istate.is_changed = true;
     params.signal_period = _signal_period;
   }

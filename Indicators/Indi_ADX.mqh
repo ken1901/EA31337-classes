@@ -23,6 +23,13 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iADX(string _symbol, int _tf, int _period, int _ap, int _mode, int _shift) {
+  return Indi_ADX::iADX(_symbol, (ENUM_TIMEFRAMES)_tf, _period, (ENUM_APPLIED_PRICE)_ap, (ENUM_ADX_LINE)_mode, _shift);
+}
+#endif
+
 // Indicator line identifiers used in ADX indicator.
 enum ENUM_ADX_LINE {
 #ifdef __MQL4__
@@ -41,12 +48,16 @@ enum ENUM_ADX_LINE {
 struct ADXParams : IndicatorParams {
   unsigned int period;
   ENUM_APPLIED_PRICE applied_price;
-  // Struct constructor.
+  // Struct constructors.
   void ADXParams(unsigned int _period, ENUM_APPLIED_PRICE _applied_price)
       : period(_period), applied_price(_applied_price) {
     itype = INDI_ADX;
     max_modes = FINAL_ADX_LINE_ENTRY;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void ADXParams(ADXParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -81,6 +92,7 @@ class Indi_ADX : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iADX(_symbol, _tf, _period)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

@@ -30,6 +30,15 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iGator(string _symbol, int _tf, int _jp, int _js, int _tp, int _ts, int _lp, int _ls, int _ma_method, int _ap,
+              int _mode, int _shift) {
+  return Indi_Gator::iGator(_symbol, (ENUM_TIMEFRAMES)_tf, _jp, _js, _tp, _ts, _lp, _ls, (ENUM_MA_METHOD)_ma_method,
+                            (ENUM_APPLIED_PRICE)_ap, (ENUM_GATOR_HISTOGRAM)_mode, _shift);
+}
+#endif
+
 #ifndef __MQLBUILD__
 // Indicator constants.
 // @docs
@@ -60,17 +69,16 @@ enum ENUM_GATOR_COLOR { GATOR_HISTCOLOR_GREEN = 0, GATOR_HISTCOLOR_RED = 1, FINA
 
 // Structs.
 struct GatorParams : IndicatorParams {
-  unsigned int jaw_period;           // Jaw line averaging period.
-  unsigned int jaw_shift;            // Jaw line shift.
-  unsigned int teeth_period;         // Teeth line averaging period.
-  unsigned int teeth_shift;          // Teeth line shift.
-  unsigned int lips_period;          // Lips line averaging period.
-  unsigned int lips_shift;           // Lips line shift.
+  int jaw_period;                    // Jaw line averaging period.
+  int jaw_shift;                     // Jaw line shift.
+  int teeth_period;                  // Teeth line averaging period.
+  int teeth_shift;                   // Teeth line shift.
+  int lips_period;                   // Lips line averaging period.
+  int lips_shift;                    // Lips line shift.
   ENUM_MA_METHOD ma_method;          // Averaging method.
   ENUM_APPLIED_PRICE applied_price;  // Applied price.
-  // Struct constructor.
-  void GatorParams(unsigned int _jp, unsigned int _js, unsigned int _tp, unsigned int _ts, unsigned int _lp,
-                   unsigned int _ls, ENUM_MA_METHOD _mm, ENUM_APPLIED_PRICE _ap)
+  // Struct constructors.
+  void GatorParams(int _jp, int _js, int _tp, int _ts, int _lp, int _ls, ENUM_MA_METHOD _mm, ENUM_APPLIED_PRICE _ap)
       : jaw_period(_jp),
         jaw_shift(_js),
         teeth_period(_tp),
@@ -82,6 +90,10 @@ struct GatorParams : IndicatorParams {
     itype = INDI_GATOR;
     max_modes = FINAL_GATOR_LINE_HISTOGRAM_ENTRY;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void GatorParams(GatorParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -127,16 +139,17 @@ class Indi_Gator : public Indicator {
    * - https://docs.mql4.com/indicators/igator
    * - https://www.mql5.com/en/docs/indicators/igator
    */
-  static double iGator(string _symbol, ENUM_TIMEFRAMES _tf, unsigned int _jaw_period, unsigned int _jaw_shift,
-                       unsigned int _teeth_period, unsigned int _teeth_shift, unsigned int _lips_period,
-                       unsigned int _lips_shift, ENUM_MA_METHOD _ma_method, ENUM_APPLIED_PRICE _applied_price,
-                       ENUM_GATOR_HISTOGRAM _mode, int _shift = 0, Indicator *_obj = NULL) {
+  static double iGator(string _symbol, ENUM_TIMEFRAMES _tf, int _jaw_period, int _jaw_shift, int _teeth_period,
+                       int _teeth_shift, int _lips_period, int _lips_shift, ENUM_MA_METHOD _ma_method,
+                       ENUM_APPLIED_PRICE _applied_price, ENUM_GATOR_HISTOGRAM _mode, int _shift = 0,
+                       Indicator *_obj = NULL) {
 #ifdef __MQL4__
     return ::iGator(_symbol, _tf, _jaw_period, _jaw_shift, _teeth_period, _teeth_shift, _lips_period, _lips_shift,
                     _ma_method, _applied_price, _mode, _shift);
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iGator(_symbol, _tf, _jaw_period, _jaw_shift, _teeth_period, _teeth_shift, _lips_period,
                               _lips_shift, _ma_method, _applied_price)) == INVALID_HANDLE) {
@@ -262,7 +275,7 @@ class Indi_Gator : public Indicator {
   /**
    * Set jaw period value.
    */
-  void SetJawPeriod(unsigned int _jaw_period) {
+  void SetJawPeriod(int _jaw_period) {
     istate.is_changed = true;
     params.jaw_period = _jaw_period;
   }
@@ -270,7 +283,7 @@ class Indi_Gator : public Indicator {
   /**
    * Set jaw shift value.
    */
-  void SetJawShift(unsigned int _jaw_shift) {
+  void SetJawShift(int _jaw_shift) {
     istate.is_changed = true;
     params.jaw_shift = _jaw_shift;
   }
@@ -278,7 +291,7 @@ class Indi_Gator : public Indicator {
   /**
    * Set teeth period value.
    */
-  void SetTeethPeriod(unsigned int _teeth_period) {
+  void SetTeethPeriod(int _teeth_period) {
     istate.is_changed = true;
     params.teeth_period = _teeth_period;
   }
@@ -286,7 +299,7 @@ class Indi_Gator : public Indicator {
   /**
    * Set teeth shift value.
    */
-  void SetTeethShift(unsigned int _teeth_shift) {
+  void SetTeethShift(int _teeth_shift) {
     istate.is_changed = true;
     params.teeth_period = _teeth_shift;
   }
@@ -294,7 +307,7 @@ class Indi_Gator : public Indicator {
   /**
    * Set lips period value.
    */
-  void SetLipsPeriod(unsigned int _lips_period) {
+  void SetLipsPeriod(int _lips_period) {
     istate.is_changed = true;
     params.lips_period = _lips_period;
   }
@@ -302,7 +315,7 @@ class Indi_Gator : public Indicator {
   /**
    * Set lips shift value.
    */
-  void SetLipsShift(unsigned int _lips_shift) {
+  void SetLipsShift(int _lips_shift) {
     istate.is_changed = true;
     params.lips_period = _lips_shift;
   }

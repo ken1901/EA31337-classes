@@ -25,9 +25,14 @@
 #define DICT_STRUCT_MQH
 
 #include "DictBase.mqh"
+#include "DictIteratorBase.mqh"
+
+class Dynamic;
 
 // DictIterator could be used as DictStruct iterator.
 #define DictStructIterator DictIteratorBase
+
+class Log;
 
 /**
  * Hash-table based dictionary.
@@ -75,7 +80,7 @@ class DictStruct : public DictBase<K, V> {
       }
     }
     // No items found.
-    static DictStructIterator<K, V> invalid;
+    DictStructIterator<K, V> invalid;
     return invalid;
   }
 
@@ -84,6 +89,17 @@ class DictStruct : public DictBase<K, V> {
    */
   bool Push(V& value) {
     if (!InsertInto(_DictSlots_ref, value)) return false;
+    return true;
+  }
+
+  /**
+   * Inserts value using hashless key.
+   */
+  template<>
+  bool Push(Dynamic* value) {
+    V ptr = value;
+
+    if (!InsertInto(_DictSlots_ref, ptr)) return false;
     return true;
   }
 
@@ -237,9 +253,8 @@ class DictStruct : public DictBase<K, V> {
    * Shrinks or expands array of DictSlots.
    */
   bool Resize(unsigned int new_size) {
-    if (new_size < _DictSlots_ref._num_used) {
-      // We can't shrink to less than number of already used DictSlots.
-      // It is okay to return true.
+    if (new_size <= MathMin(_DictSlots_ref._num_used, ArraySize(_DictSlots_ref.DictSlots))) {
+      // We already use minimum number of slots possible.
       return true;
     }
 

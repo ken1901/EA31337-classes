@@ -28,13 +28,8 @@
 #ifndef EA_MQH
 #define EA_MQH
 
-// Includes.
-#include "Chart.mqh"
-#include "Market.mqh"
-#include "Strategy.mqh"
-#include "SummaryReport.mqh"
-#include "Task.mqh"
-#include "Terminal.mqh"
+// Forward class declaration.
+class Condition;
 
 // Enums.
 // EA actions.
@@ -64,6 +59,14 @@ enum ENUM_EA_STATE_FLAGS {
   EA_STATE_FLAG_TESTING_VISUAL = 1 << 6,  // Indicates EA runs in visual testing mode.
   EA_STATE_FLAG_TRADE_ALLOWED = 1 << 7,   // Indicates the permission to trade on the chart.
 };
+
+// Includes.
+#include "Chart.mqh"
+#include "Market.mqh"
+#include "Strategy.mqh"
+#include "SummaryReport.mqh"
+#include "Task.mqh"
+#include "Terminal.mqh"
 
 // Defines EA config parameters.
 struct EAParams {
@@ -160,12 +163,11 @@ class EA {
  protected:
   // Class variables.
   Account *account;
-  Chart *chart;
   DictObject<ENUM_TIMEFRAMES, Dict<long, Strategy *>> *strats;
   DictObject<ENUM_TIMEFRAMES, Trade> *trade;
   DictObject<short, Task> *tasks;
-  Log *logger;
   Market *market;
+  Ref<Log> logger;
   SummaryReport *report;
   Terminal *terminal;
 
@@ -182,13 +184,13 @@ class EA {
    */
   EA(EAParams &_params)
       : account(new Account),
-        chart(new Chart(PERIOD_CURRENT, _params.symbol)),
         logger(new Log(_params.log_level)),
-        market(new Market(_params. symbol, logger)),
+        market(new Market(_params. symbol, logger.Ptr())),
         report(new SummaryReport),
         strats(new DictObject<ENUM_TIMEFRAMES, Dict<long, Strategy *>>),
         tasks(new DictObject<short, Task>),
         terminal(new Terminal) {
+    eparams = _params;
     UpdateStateFlags();
   }
 
@@ -197,8 +199,6 @@ class EA {
    */
   ~EA() {
     Object::Delete(account);
-    Object::Delete(chart);
-    Object::Delete(logger);
     Object::Delete(market);
     Object::Delete(report);
     Object::Delete(tasks);
@@ -213,46 +213,50 @@ class EA {
     Object::Delete(strats);
   }
 
+  Log* Logger() { return logger.Ptr(); }
+
   /* Processing methods */
 
   /**
-   * Process strategy signals.
+   * Process strategy signals on tick event.
    *
-   * Call this method for every new bar.
+   * Call this method for every tick bar.
+   *
+   * @return
+   *   Returns number of strategies which processed the tick.
    */
-  EAProcessResult Process(ENUM_TIMEFRAMES _tf) {
-    if (estate.IsActive() && estate.IsEnabled()) {
-      market.SetTick(SymbolInfo::GetTick(_Symbol));
-      for (DictIterator<long, Strategy *> iter = strats[_tf].Begin(); iter.IsValid(); ++iter) {
-        Strategy *_strat = iter.Value();
-        if (_strat.IsEnabled()) {
-          if (_strat.Chart().IsNewBar()) {
-            if (!_strat.IsSuspended()) {
-              eresults.ResetError();
-              _strat.Process();
-              eresults.last_error = fmax(eresults.last_error, _strat.GetProcessResult().last_error);
-              eresults.stg_errored += (int)_strat.GetProcessResult().last_error > ERR_NO_ERROR;
-              eresults.stg_processed++;
-              if (eresults.last_error > ERR_NO_ERROR) {
-                _strat.Logger().Flush();
-              }
-            } else {
-              eresults.stg_suspended++;
-            }
+  virtual EAProcessResult ProcessTick(const ENUM_TIMEFRAMES _tf, const MqlTick &_tick) {
+    for (DictIterator<long, Strategy *> iter = strats[_tf].Begin(); iter.IsValid(); ++iter) {
+      Strategy *_strat = iter.Value();
+      if (_strat.IsEnabled()) {
+        if (_strat.TickFilter(_tick)) {
+          if (!_strat.IsSuspended()) {
+            StgProcessResult _strat_result = _strat.Process();
+            eresults.last_error = fmax(eresults.last_error, _strat_result.last_error);
+            eresults.stg_errored += (int) _strat_result.last_error > ERR_NO_ERROR;
+            eresults.stg_processed++;
+          } else {
+            eresults.stg_suspended++;
           }
         }
       }
     }
     return eresults;
   }
-  EAProcessResult Process() {
+  virtual EAProcessResult ProcessTick() {
     if (estate.IsActive() && estate.IsEnabled()) {
+      eresults.Reset();
       market.SetTick(SymbolInfo::GetTick(_Symbol));
-      for (DictObjectIterator<ENUM_TIMEFRAMES, Dict<long, Strategy *>> iter = strats.Begin(); iter.IsValid(); ++iter) {
-        Process(iter.Key());
+      for (DictObjectIterator<ENUM_TIMEFRAMES, Dict<long, Strategy *>>
+        iter_tf = strats.Begin();
+        iter_tf.IsValid();
+        ++iter_tf) {
+          ProcessTick(iter_tf.Key(), market.GetLastTick());
+      }
+      if (eresults.last_error > ERR_NO_ERROR) {
+        logger.Ptr().Flush();
       }
     }
-    eresults.tasks_processed = ProcessTasks();
     return eresults;
   }
 
@@ -366,7 +370,7 @@ class EA {
       case EA_COND_IS_ENABLED:
         return estate.IsEnabled();
       default:
-        logger.Error(StringFormat("Invalid EA condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
+        Logger().Error(StringFormat("Invalid EA condition: %s!", EnumToString(_cond), __FUNCTION_LINE__));
         return false;
     }
   }
@@ -397,7 +401,7 @@ class EA {
         tasks = new DictObject<short, Task>();
         return tasks.Size() == 0;
       default:
-        logger.Error(StringFormat("Invalid EA action: %s!", EnumToString(_action), __FUNCTION_LINE__));
+        Logger().Error(StringFormat("Invalid EA action: %s!", EnumToString(_action), __FUNCTION_LINE__));
         return false;
     }
     return _result;
@@ -446,14 +450,9 @@ class EA {
   Account *Account() { return account; }
 
   /**
-   * Gets pointer to chart details.
-   */
-  Chart *Chart() { return chart; }
-
-  /**
    * Gets pointer to log instance.
    */
-  Log *Log() { return logger; }
+  Log *Log() { return logger.Ptr(); }
 
   /**
    * Gets pointer to market details.

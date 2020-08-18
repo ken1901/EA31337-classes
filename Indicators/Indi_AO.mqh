@@ -23,6 +23,11 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iAO(string _symbol, int _tf, int _shift) { return Indi_AO::iAO(_symbol, (ENUM_TIMEFRAMES)_tf, _shift); }
+#endif
+
 // Structs.
 struct AOParams : IndicatorParams {
   // Struct constructor.
@@ -63,6 +68,7 @@ class Indi_AO : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iAO(_symbol, _tf)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);

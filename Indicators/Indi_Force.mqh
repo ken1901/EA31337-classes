@@ -34,17 +34,29 @@
 // Includes.
 #include "../Indicator.mqh"
 
+#ifndef __MQL4__
+// Defines global functions (for MQL4 backward compability).
+double iForce(string _symbol, int _tf, int _period, int _ma_method, int _ap, int _shift) {
+  return Indi_Force::iForce(_symbol, (ENUM_TIMEFRAMES)_tf, _period, (ENUM_MA_METHOD)_ma_method, (ENUM_APPLIED_PRICE)_ap,
+                            _shift);
+}
+#endif
+
 // Structs.
 struct ForceParams : IndicatorParams {
   unsigned int period;
   ENUM_MA_METHOD ma_method;
   ENUM_APPLIED_PRICE applied_price;
-  // Struct constructor.
+  // Struct constructors.
   void ForceParams(unsigned int _period, ENUM_MA_METHOD _ma_method, ENUM_APPLIED_PRICE _ap)
       : period(_period), ma_method(_ma_method), applied_price(_ap) {
     itype = INDI_FORCE;
     max_modes = 1;
     SetDataValueType(TYPE_DOUBLE);
+  };
+  void ForceParams(ForceParams &_params, ENUM_TIMEFRAMES _tf = PERIOD_CURRENT) {
+    this = _params;
+    _params.tf = _tf;
   };
 };
 
@@ -82,6 +94,7 @@ class Indi_Force : public Indicator {
 #else  // __MQL5__
     int _handle = Object::IsValid(_obj) ? _obj.GetState().GetHandle() : NULL;
     double _res[];
+    ResetLastError();
     if (_handle == NULL || _handle == INVALID_HANDLE) {
       if ((_handle = ::iForce(_symbol, _tf, _period, _ma_method, VOLUME_TICK)) == INVALID_HANDLE) {
         SetUserError(ERR_USER_INVALID_HANDLE);
