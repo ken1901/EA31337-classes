@@ -28,9 +28,9 @@
 class Condition;
 
 // Includes.
-#include "../Action.mqh"
+//#include "../Action.mqh"
 #include "../DictObject.mqh"
-#include "../EA.mqh"
+//#include "../EA.mqh"
 #include "../Test.mqh"
 
 // Global variables.

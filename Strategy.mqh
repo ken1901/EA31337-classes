@@ -28,11 +28,11 @@
 #include "Action.enums.h"
 #include "Condition.enums.h"
 #include "Dict.mqh"
-#include "EA.mqh"
+//#include "EA.mqh"
 #include "Indicator.mqh"
 #include "Object.mqh"
 #include "String.mqh"
-#include "Task.mqh"
+//#include "Task.mqh"
 
 // Defines.
 #ifndef __noinput__

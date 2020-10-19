@@ -25,7 +25,7 @@
 #include "Math.mqh"
 #include "Order.mqh"
 #include "Chart.mqh"
-#include "Strategy.mqh"
+//#include "Strategy.mqh"
 
 // Globals enums.
 enum ENUM_STRATEGY { // Define list of strategies.

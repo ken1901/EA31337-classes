@@ -26,10 +26,10 @@
 
 // Includes.
 #include "../Condition.mqh"
-#include "../Action.mqh"
+//#include "../Action.mqh"
 #include "../DictObject.mqh"
-#include "../EA.mqh"
-#include "../Task.mqh"
+//#include "../EA.mqh"
+//#include "../Task.mqh"
 #include "../Test.mqh"
 
 // Global variables.

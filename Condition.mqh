@@ -43,7 +43,7 @@ class Condition;
 #include "Math.mqh"
 #include "Object.mqh"
 #include "Order.mqh"
-#include "Trade.mqh"
+//#include "Trade.mqh"
 
 // Define market event conditions.
 #ifndef MARKET_EVENT_ENUM
